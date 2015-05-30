@@ -1,5 +1,6 @@
 var lang = require("lively.lang");
 var uuid = require("node-uuid");
+var logger = require("./logger");
 
 module.exports = {
 
@@ -37,7 +38,7 @@ module.exports = {
     if (!msg.target && receiver) msg.target = receiver.id;
     registerMessageEmitter(self, msg);
     var msgString = JSON.stringify(msg);
-    // console.log("[msg send] %s %s -> %s", msg.action, msg.sender, msg.target);
+    logger.log("msg send", "%s %s -> %s", msg.action, msg.sender, msg.target);
     self.sendString(receiver, msgString, thenDo);
     return msg;
   }
@@ -56,7 +57,7 @@ function registerMessageEmitter(self, origMsg) {
       return;
     }
 
-    // console.log("[msg recv] %s got %s", self.id, msg.inResponseTo ? "answer for " + msg.action : msg.messageId);
+    logger.log("msg recv", "%s got %s", self.id, msg.inResponseTo ? "answer for " + msg.action : msg.messageId);
     if (msg.inResponseTo !== msgId) return;
 
     try {

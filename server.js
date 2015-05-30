@@ -4,6 +4,8 @@ var uuid            = require("node-uuid");
 var defaultServices = require("./services");
 var serverServices  = require("./server-services");
 var messaging       = require("./messaging");
+var logger          = require("./logger");
+var client          = require("./client");
 
 var defaultPort = 10081;
 
@@ -15,6 +17,7 @@ function start(options, thenDo) {
   options.clientTracking = true;
   var server = new WebSocketServer(options);
   var tracker = lang.events.makeEmitter({
+    isTracker: true,
     id: "nodejs-tracker-" + uuid.v4(),
     server: server,
     services: lang.obj.merge(defaultServices, serverServices),
@@ -41,19 +44,42 @@ function start(options, thenDo) {
     });
   });
 
+  server.on("listening", function() {
+    logger.log("tracker started", "%s", tracker.id);
+  });
+
+  server.on("error", function() { logger.log("tracker error", "%s", tracker.id); });
+  server.on("close", function() { logger.log("tracker closed", "%s", tracker.id); });
+
   if (thenDo) thenDo(null, tracker);
 
   return tracker;
 }
 
 function close(tracker, thenDo) {
-  if (!tracker || !tracker.server) {
-    if (thenDo) thenDo(new Error("no tracker for close"));
-    return;
-  }
-  tracker.server.close();
-  tracker.emit("close");
-  if (thenDo) thenDo(null);
+  lang.fun.composeAsync(
+    function(n) {
+      lang.fun.waitForAll(
+        lang.obj.values(tracker.serverSessions)
+          .map(function(ea) {
+            return function(n) {
+              console.log("server closes client %s", ea.id);
+              client.close(ea, n);
+            }
+          }), n);
+    },
+    function(_, n) {
+      if (!tracker || !tracker.server) {
+        n(new Error("no tracker for close"));
+        return;
+      }
+      tracker.server.close();
+      setTimeout(function() {
+        tracker.emit("close");
+        n();
+      }, 100);
+    }
+  )(thenDo);
 }
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -65,7 +91,7 @@ function receiveMessage(tracker, ws, msg) {
 
   ws.once("close", function() { sender.emit("close"); });
 
-  // console.log("[tracker recv] %s got %s", tracker.id, msg.inResponseTo ? "answer for " + msg.action : msg.action);
+  logger.log("tracker recv", "%s got %s", tracker.id, msg.inResponseTo ? "answer for " + msg.action : msg.action);
 
   if (msg.inResponseTo) {
     tracker.emit("message", msg);

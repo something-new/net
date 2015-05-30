@@ -8,12 +8,14 @@ var client    = require("./client");
 function connect(tracker, opts, thenDo) {
   opts = opts || {};
   opts.register = true;
+  opts.isFederationConnection = true;
+  opts.id = tracker.id;
+
   lang.fun.composeAsync(
     function(n) { client.start(opts, n); },
     function(client, n) {
-      client.id = client.trackerId;
-      tracker.serverSessions[client.id] = client;
-      client.on("close", function() { delete tracker.serverSessions[client.id]; });
+      tracker.serverSessions[client.trackerId] = client;
+      client.on("close", function() { delete tracker.serverSessions[client.trackerId]; });
       n(null, client);
     }
     // function(client, n) {

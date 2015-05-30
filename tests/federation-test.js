@@ -31,18 +31,19 @@ describe("federation", function() {
   
   afterEach(done => {
     lang.fun.waitForAll([
+      n => client.close(client1, n),
+      n => client.close(client2, n),
       n => server.close(tracker1, n),
       n => server.close(tracker2, n)
     ], done);
   });
 
-  it("establishes server-to-server connection", function(done) {
+  it("client can access all sessions", function(done) {
     lang.fun.composeAsync(
       n => sessions.knownBy(client1, n)
     )((err, sessions) => {
       if (err) return done(err);
-// console.log(sessions);
-// console.log([client1.id, client2.id, tracker1.id, tracker2.id]);
+      expect(sessions).to.have.length(4);
       expect(sessions).containSubset([
         {id: client1.id},
         {id: client2.id},
@@ -51,20 +52,54 @@ describe("federation", function() {
       ]);
       done();
     });
+  });
 
-  //   lang.fun.composeAsync(
-  //     n => {
-  //       var msg = messaging.sendTo(client1, {id: client1.trackerId},
-  //         "echo", null, "foo",
-  //         (err, msg) => err && done(err));
-  //       client1.once("answer-"+msg.messageId, msg => n(null, msg));
-  //     }
-  //   )((err, msg) => {
-  //     if (err) return done(err);
-  //     expect(msg.action).eq("echoResult");
-  //     expect(msg.data).eq("foo");
-  //     done();
-  //   });
+  it("server can access all sessions", function(done) {
+    lang.fun.composeAsync(
+      n => sessions.knownBy(tracker1, n)
+    )((err, sessions) => {
+      if (err) return done(err);
+      expect(sessions).to.have.length(4);
+      expect(sessions).containSubset([
+        {id: client1.id},
+        {id: client2.id},
+        {id: tracker1.id},
+        {id: tracker2.id},
+      ]);
+      done();
+    });
+  });
+
+  it("deals with client close", function(done) {
+    lang.fun.composeAsync(
+      n => client.close(client2, n),
+      n => sessions.knownBy(tracker1, n)
+    )((err, sessions) => {
+      if (err) return done(err);
+      expect(sessions).to.have.length(3);
+      expect(sessions).containSubset([
+        {id: client1.id},
+        {id: tracker1.id},
+        {id: tracker2.id},
+      ]);
+      done();
+    });
+  });
+
+  it("deals with server close", function(done) {
+    lang.fun.composeAsync(
+      n => client.close(client2, n),
+      n => server.close(tracker2, n),
+      n => sessions.knownBy(tracker1, n)
+    )((err, sessions) => {
+      if (err) return done(err);
+      expect(sessions).to.have.length(2);
+      expect(sessions).containSubset([
+        {id: client1.id},
+        {id: tracker1.id},
+      ]);
+      done();
+    });
   });
 
 });

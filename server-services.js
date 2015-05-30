@@ -1,33 +1,8 @@
 var lang = require("lively.lang");
+var util = require("./util");
 var messaging = require("./messaging");
-
-function selectKeys(obj, keys) {
-  var result = {};
-  keys.forEach(function(k) { result[k] = obj[k]; });
-  return result;
-}
-
-function dissoc(obj, key) {
-  var result = lang.obj.clone(obj);
-  delete result[key];
-  return result;
-}
-
-function assoc(obj, key, value) {
-  var result = lang.obj.clone(obj);
-  result[key] = value;
-  return result;
-}
-
-function uniq(array, sorted) {
-    return array.reduce(function(a, value, index) {
-      if (0 === index || (sorted ? a.slice(-1)[0] != value : a.indexOf(value) === -1))
-        a.push(value);
-      return a;
-    }, []);
-  }
-
-var merge = lang.obj.merge;
+var sessions = require("./sessions");
+var logger = require("./logger");
 
 module.exports = {
 
@@ -40,39 +15,25 @@ module.exports = {
     });
   },
 
-  knownSessions: function(self, sender, msg) {
-    var ownSession = merge(selectKeys(self, ["id"]), {type: "tracker"}),
-        localSessions = [ownSession]
-        .concat(lang.obj.values(self.clientSessions)
-            .map(function(ea) { return merge(selectKeys(ea, ["id"]), {type: "client"}); }));
-
-    var ignored = lang.obj.clone(msg.data.ignoredTrackers || []),
-        otherTrackers = lang.obj.values(self.serverSessions)
-          .filter(function(ea) { return ignored.indexOf(ea.id) === -1; }),
-        ignored = uniq(ignored
-          .concat(lang.arr.pluck(otherTrackers, "id"))
-          .concat([self.id]));
-
-    if (!otherTrackers.length) {
-      messaging.answer(self, sender, msg, localSessions);
-      return;
-    }
-
-    lang.arr.mapAsyncSeries(otherTrackers,
-      function(trackerCon, _, n) {
-        messaging.sendAndReceive(trackerCon, trackerCon, {
-          action: "knownSessions",
-          data: {ignoredTrackers: ignored}
-        }, function(err, answer) { n(err, answer ? answer.data : []); });
-      },
-      function(err, nestedSessions) {
-        var sessions = localSessions.concat(lang.arr.flatten(nestedSessions));
-        messaging.answer(self, sender, msg, sessions);
-      });
-  },
-
   unregisterClient: function(self, sender, msg) {
     messaging.answer(self, sender, msg, {success: true});
+  },
+
+  registerServer: function(self, sender, msg) {
+    var id = sender.id;
+    self.serverSessions[id] = sender;
+    sender.on("close", function() { delete self.serverSessions[id]; });
+    messaging.answer(self, sender, msg, {
+      success: true,
+      tracker: {id: self.id}
+    });
+  },
+
+  knownSessions: function(self, sender, msg) {
+    sessions.knownBy(self, msg.data.ignoredTrackers,
+      function(err, sessions) {
+        messaging.answer(self, sender, msg, err ? {error: String(err)} : sessions);
+      });
   },
 
   // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
