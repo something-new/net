@@ -1,0 +1,23 @@
+{
+  "name": "net",
+  "version": "0.1.0",
+  "scripts": {
+    "test": "node_modules/.bin/mocha --no-colors --ui bdd --reporter min --compilers js:babel/register tests/*-test.js"
+  },
+  "dependencies": {
+    "babel-core": "^5.4.3",
+    "lively.lang": "^0.4.1",
+    "node-uuid": "^1.4.3",
+    "ws": "^0.7.2"
+  },
+  "devDependencies": {
+    "lively2lively": "git://github.com/rksm/node-lively2lively#master",
+    "lively-fs-helper": "^0.1.0",
+    "lively-http-helper": "^0.1.0",
+    "chai": "^2.3.0",
+    "chai-subset": "^1.0.0",
+    "mocha": "^2.2.5",
+    "mocha-phantomjs": "^3.5.3",
+    "phantomjs": "^1.9.16"
+  }
+}
