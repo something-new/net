@@ -51,3 +51,17 @@ var endpoint = client.start({port: 10083}, function() {
   })
 });
 ```
+
+## Tests
+
+```sh
+$ node_modules/.bin/mocha \
+  --no-colors --ui bdd --reporter min \
+  --watch \
+  --compilers js:babel-core/register \
+  tests/*-test.js
+```
+
+## License
+
+MIT License
