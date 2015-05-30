@@ -4,6 +4,7 @@ var uuid = require("node-uuid");
 var messaging = require("./messaging");
 var logger = require("./logger");
 var util = require("./util");
+var defaultServices = require("./services");
 
 var defaultPort = 10081;
 
@@ -13,9 +14,15 @@ function createWsConnection(client, options, thenDo) {
     thenDo && thenDo(err, client);
   }
 
-  function onMessage(msg) {
-    logger.log("client recv", "%s %s", client.id, msg);
-    client.emit("message", msg);
+  function onMessage(msgString) {
+    // logger.log("client recv", "%s %s", client.id, msgString);
+    try {
+      var msg = JSON.parse(msgString);
+    } catch (e) {
+      console.error("Client cannot read incoming message %s", msgString);
+      return;
+    }
+    receiveMessage(client, ws, msg);
   }
 
   var ws = client.ws = new WebSocket(options.url);
@@ -44,6 +51,7 @@ function start(options, thenDo) {
       autoReconnect = options.hasOwnProperty("autoReconnect") ? !!options.autoReconnect : true,
       client = lang.events.makeEmitter({
         id: id,
+        services: lang.obj.clone(defaultServices),
         ws: null,
         isReconnecting: false,
         isSending: false,
@@ -92,6 +100,7 @@ function close(client, thenDo) {
     if (thenDo) thenDo(new Error("no client to close"));
     return;
   }
+
   client.isClosed = true;
 
   var ws = client.ws;
@@ -159,6 +168,31 @@ function sendRegisterMessage(client, opts, thenDo) {
     });
   } finally {
     client.sendString = origSend;
+  }
+}
+
+function receiveMessage(client, ws, msg) {
+  var services = client.services || {},
+      sender = lang.events.makeEmitter({id: msg.sender, ws: ws}),
+      handler = services[msg.action];
+
+  ws.once("close", function() { sender.emit("close"); });
+
+  logger.log("client recv", "%s got %s", client.id, msg.inResponseTo ? "answer for " + msg.action : msg.action);
+
+  if (msg.inResponseTo) {
+    client.emit("message", msg);
+    client.emit("answer-" + msg.inResponseTo, msg);
+  } else if (handler) {
+    try {
+      handler(client, sender, msg);
+    } catch (e) {
+      console.error("Error in service handler %s:", msg.action, e);
+    }
+  } else {
+    messaging.answer(
+      client, sender, msg,
+      {error: "message not understood"});
   }
 }
 
