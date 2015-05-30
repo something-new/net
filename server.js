@@ -1,6 +1,9 @@
-var lang = require("lively.lang");
+var lang            = require("lively.lang");
 var WebSocketServer = require('ws').Server;
-var uuid = require("node-uuid");
+var uuid            = require("node-uuid");
+var defaultServices = require("./services");
+var serverServices  = require("./server-services");
+var messaging       = require("./messaging");
 
 var defaultPort = 10081;
 
@@ -12,8 +15,18 @@ function start(options, thenDo) {
   options.clientTracking = true;
   var server = new WebSocketServer(options);
   var tracker = lang.events.makeEmitter({
-    id: uuid.v4(),
-    server: server
+    id: "nodejs-tracker-" + uuid.v4(),
+    server: server,
+    services: lang.obj.merge(defaultServices, serverServices),
+    clientSessions: {},
+    serverSessions: {},
+
+    sendString: function(receiver, msgString, thenDo) {
+      if (!receiver.ws) return thenDo && thenDo(new Error("No websocket"));
+      receiver.ws.send(msgString, function(err) {
+        if (err && thenDo) thenDo(err);
+      });
+    }
   });
 
   server.on("connection", function(ws) {
@@ -46,56 +59,39 @@ function close(tracker, thenDo) {
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 function receiveMessage(tracker, ws, msg) {
-  // tracker.emit("message", msg);
-  switch (msg.action) {
-    case 'registerClient':
-      answer(tracker, {id: msg.sender, ws: ws}, msg, {
-        success: true,
-        tracker: {id: tracker.id}
-      });
-      return;
-    case 'echo':
-      answer(tracker, {id: msg.sender, ws: ws}, msg, msg.data);
-      return;
-    default:
-      console.warn("tracker has unhandled message", msg);
+  var services = tracker.services || {},
+      sender = lang.events.makeEmitter({id: msg.sender, ws: ws}),
+      handler = services[msg.action];
+
+  ws.once("close", function() { sender.emit("close"); });
+
+  // console.log("[tracker recv] %s got %s", tracker.id, msg.inResponseTo ? "answer for " + msg.action : msg.action);
+
+  if (msg.inResponseTo) {
+    tracker.emit("message", msg);
+  } else if (handler) {
+    try {
+      handler(tracker, sender, msg);
+    } catch (e) {
+      console.error("Error in service handler %s:", msg.action, e);
+    }
+  } else {
+    messaging.answer(
+      tracker, sender, msg,
+      {error: "message not understood"});
   }
 }
 
-function answer(tracker, client, origMsg, data) {
-  return send(tracker, client, {
-    action: origMsg.action + "Result",
-    inResponseTo: origMsg.messageId,
-    data: data
-  });  
-}
-
-function sendTo(tracker, client, action, messageId, data, thenDo) {
-  var msg = {
-    action: action,
-    data: data
-  };
-  return send(tracker, client, msg, thenDo);
-}
-
-function send(tracker, client, msg, thenDo) {
-  if (!client.ws) return thenDo && thenDo(new Error("No websocket"));
-  if (!msg.sender) msg.sender = tracker.id;
-  if (!msg.messageId) msg.messageId = uuid.v4();
-  if (!msg.target) msg.target = client.id;
-  var msgString = JSON.stringify(msg);
-  client.ws.send(msgString, function(err) {
-    if (thenDo) {
-      if (err) thenDo(err, msg);
-      // else registerMessageCallback(client, msg, thenDo);
-    }
-  });
-  return msg;
+function addService(tracker, name, handler) {
+  if (!tracker.services) tracker.services = {};
+  tracker.services[name] = handler;
+  return tracker;
 }
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 module.exports = {
   start: start,
-  close: close
+  close: close,
+  addService: addService
 }
