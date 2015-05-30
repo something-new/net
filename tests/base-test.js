@@ -111,7 +111,7 @@ describe('client and server', function() {
       });
     });
 
-    it.only("client re-establishes connection when server fails", function(done) {
+    it("client re-establishes connection when server fails", function(done) {
       lang.fun.composeAsync(
         n => server.close(tracker, n),
         n => setTimeout(n, 200),
