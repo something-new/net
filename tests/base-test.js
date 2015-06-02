@@ -14,7 +14,8 @@ var port = 10082;
 describe('client and server', function() {
 
   var tracker, client1;
-  beforeEach((done) => {
+  beforeEach(function(done) {
+    console.log("[TESTING] >>> \"%s\"", this.currentTest.title);
     lang.fun.composeAsync(
       n => tracker = server.start({port: port}, n),
       (_, n) => client1 = client.start({port: port}, n),
@@ -22,7 +23,8 @@ describe('client and server', function() {
     )(done);
   });
   
-  afterEach(done => {
+  afterEach(function(done) {
+    console.log("[TESTING DONE] <<< \"%s\"", this.currentTest.title);
     lang.fun.waitForAll([
       n => client.close(client1, n),
       n => server.close(tracker, n)
@@ -34,9 +36,9 @@ describe('client and server', function() {
     it("inits client and echos", function(done) {
       lang.fun.composeAsync(
         n => {
-          var msg = messaging.sendTo(client1, {id: client1.trackerId},
-            "echo", "foo",
-            (err, msg) => err && done(err));
+          var msg = messaging.sendTo(
+            client1, {id: client1.trackerId},
+            "echo", "foo", (err, msg) => err && done(err));
           client1.once("answer-"+msg.messageId, msg => n(null, msg));
         }
       )((err, msg) => {

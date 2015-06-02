@@ -6,6 +6,7 @@ var serverServices  = require("./server-services");
 var messaging       = require("./messaging");
 var logger          = require("./logger");
 var client          = require("./client");
+var util            = require("./util");
 
 var defaultPort = 10081;
 
@@ -23,6 +24,9 @@ function start(options, thenDo) {
     services: lang.obj.merge(defaultServices, serverServices),
     clientSessions: {},
     serverSessions: {},
+    
+    connectionState: messaging.ConnectionStates.CONNECTING,
+    sendState: messaging.SendStates.IDLE,
 
     sendString: function(receiver, msgString, thenDo) {
       if (!receiver.ws) return thenDo && thenDo(new Error("No websocket"));
@@ -32,12 +36,23 @@ function start(options, thenDo) {
     }
   });
 
+  tracker._connectionState = tracker.connectionState;
+  tracker.__defineSetter__("connectionState", function(val) {
+      logger.log("tracker state", "%s -> %s",
+      util.keyForValue(messaging.ConnectionStates, this._connectionState),
+      util.keyForValue(messaging.ConnectionStates, val));
+    return this._connectionState = val;
+  });
+  tracker.__defineGetter__("connectionState", function() {
+    return this._connectionState;
+  });
+
   server.on("connection", function(ws) {
     ws.on('message', function(msgString) {
       try {
         var msg = JSON.parse(msgString);
       } catch (e) {
-        console.error("Tracker cannot read incoming message %s", msgString);
+        console.error("Tracker cannot read incoming message " + msgString);
         return;
       }
       receiveMessage(tracker, ws, msg);
@@ -45,10 +60,11 @@ function start(options, thenDo) {
   });
 
   server.on("listening", function() {
+    tracker.connectionState = messaging.ConnectionStates.CONNECTED;
     logger.log("tracker started", "%s", tracker.id);
   });
 
-  server.on("error", function() { logger.log("tracker error", "%s", tracker.id); });
+  server.on("error", function(err) { logger.log("tracker error", "%s", tracker.id, err); });
   server.on("close", function() { logger.log("tracker closed", "%s", tracker.id); });
 
   if (thenDo) thenDo(null, tracker);

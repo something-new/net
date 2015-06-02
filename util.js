@@ -26,10 +26,18 @@ function uniq(array, sorted) {
   }, []);
 }
 
+function keyForValue(obj, val) {
+  for (var name in obj) {
+    if (obj[name] === val) return name;
+  }
+  return null;
+}
+
 module.exports = {
-  selectKeys: selectKeys,
-  dissoc:     dissoc,
-  assoc:      assoc,
-  uniq:       uniq,
-  merge:      lang.obj.merge
+  selectKeys:  selectKeys,
+  dissoc:      dissoc,
+  assoc:       assoc,
+  uniq:        uniq,
+  merge:       lang.obj.merge,
+  keyForValue: keyForValue
 }
