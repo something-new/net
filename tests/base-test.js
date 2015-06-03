@@ -41,10 +41,10 @@ describe('client and server', function() {
             "echo", "foo", (err, msg) => err && done(err));
           client1.once("answer-"+msg.messageId, msg => n(null, msg));
         }
-      )((err, msg) => {
+      )((err, {action, data}) => {
         if (err) return done(err);
-        expect(msg.action).eq("echoResult");
-        expect(msg.data).eq("foo");
+        expect(action).eq("echoResult");
+        expect(data).eq("foo");
         done();
       });
     });
@@ -60,10 +60,10 @@ describe('client and server', function() {
               data: null
             }, n);
           }
-        )((err, answer) => {
+        )((err, {action, data}) => {
           if (err) return done(err);
-          expect(answer.action).eq("dummyServiceResult");
-          expect(answer.data).deep.eq({error: "message not understood"});
+          expect(action).eq("dummyServiceResult");
+          expect(data).deep.eq({error: "message not understood"});
           done();
         });
       });
@@ -86,9 +86,9 @@ describe('client and server', function() {
             data: null
           }, n);
         }
-      )((err, answer) => {
+      )((err, {data}) => {
         if (err) return done(err);
-        expect(answer.data).eq("dummyService here");
+        expect(data).eq("dummyService here");
         done();
       });
     });
@@ -122,10 +122,10 @@ describe('client and server', function() {
         n => messaging.sendAndReceive(
             client1, {id: client1.trackerId},
             {action: "echo", data: "foo"}, n)
-      )((err, msg) => {
+      )((err, {action, data}) => {
         if (err) return done(err);
-        expect(msg.action).eq("echoResult");
-        expect(msg.data).eq("foo");
+        expect(action).eq("echoResult");
+        expect(data).eq("foo");
         done();
       });
     });
