@@ -23,7 +23,8 @@ function start(options, thenDo) {
     server: server,
     services: lang.obj.merge(defaultServices, serverServices),
     clientSessions: {},
-    serverSessions: {},
+    ownedServerSessions: {},
+    acceptedServerSessions: {},
     
     connectionState: messaging.ConnectionStates.CONNECTING,
     sendState: messaging.SendStates.IDLE,
@@ -73,10 +74,11 @@ function start(options, thenDo) {
 }
 
 function close(tracker, thenDo) {
+
   lang.fun.composeAsync(
     function(n) {
       lang.fun.waitForAll(
-        lang.obj.values(tracker.serverSessions)
+        lang.obj.values(tracker.ownedServerSessions)
           .map(function(ea) {
             return function(n) {
               console.log("server closes client %s", ea.id);
@@ -84,6 +86,19 @@ function close(tracker, thenDo) {
             }
           }), n);
     },
+
+    function(_, n) {
+      lang.fun.waitForAll(
+        lang.obj.values(tracker.acceptedServerSessions)
+          .map(function(ea) {
+            return function(n) {
+              console.log("server closes remote client %s", ea.id);
+              messaging.send(tracker, ea, {action: "close"});
+              setTimeout(n, 20); 
+            }
+          }), n);
+    },
+
     function(_, n) {
       if (!tracker || !tracker.server) {
         n(new Error("no tracker for close"));
@@ -107,7 +122,9 @@ function receiveMessage(tracker, ws, msg) {
 
   ws.once("close", function() { sender.emit("close"); });
 
-  logger.log("tracker recv", "%s got %s", tracker.id, msg.inResponseTo ? "answer for " + msg.action : msg.action);
+  logger.log("tracker recv", "%s got %s", tracker.id,
+    msg.inResponseTo ?
+      "answer for " + msg.action : msg.action);
 
   if (msg.inResponseTo) {
     tracker.emit("message", msg);

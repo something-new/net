@@ -98,11 +98,7 @@ describe("federation", function() {
         {id: client1.id},
         {id: tracker1.id},
       ]);
-    lang.fun.waitForAll([
-      n => server.close(tracker1, n),
-    ], done);
-
-      // done();
+      done();
     });
   });
 

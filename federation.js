@@ -14,8 +14,8 @@ function connect(tracker, opts, thenDo) {
   lang.fun.composeAsync(
     function(n) { client.start(opts, n); },
     function(client, n) {
-      tracker.serverSessions[client.trackerId] = client;
-      client.on("close", function() { delete tracker.serverSessions[client.trackerId]; });
+      tracker.ownedServerSessions[client.trackerId] = client;
+      client.on("close", function() { delete tracker.ownedServerSessions[client.trackerId]; });
       n(null, client);
     }
     // function(client, n) {

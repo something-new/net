@@ -51,9 +51,10 @@ function createClient(options, thenDo) {
 
   client._connectionState = client.connectionState;
   client.__defineSetter__("connectionState", function(val) {
-      logger.log("client state", "%s -> %s",
+      logger.log("client state", "%s -> %s (%s)",
       util.keyForValue(ConnectionStates, this._connectionState),
-      util.keyForValue(ConnectionStates, val));
+      util.keyForValue(ConnectionStates, val),
+      client.id);
     return this._connectionState = val;
   });
   client.__defineGetter__("connectionState", function() {
@@ -186,7 +187,9 @@ function sendRegisterMessage(client, opts, thenDo) {
 
 function receiveMessage(client, ws, msg) {
   logger.log("client recv", "%s got %s", client.id,
-    msg.inResponseTo ? "answer for " + msg.action.replace(/Result$/, "") : msg.action);
+    msg.inResponseTo ?
+      "answer for " + msg.action.replace(/Result$/, "") :
+      msg.action);
 
   if (msg.inResponseTo) {
     client.emit("message", msg);
@@ -195,8 +198,8 @@ function receiveMessage(client, ws, msg) {
   }
 
   var services = client.services || {},
-    sender = lang.events.makeEmitter({id: msg.sender, ws: ws}),
-    handler = services[msg.action];
+      sender = lang.events.makeEmitter({id: msg.sender, ws: ws}),
+      handler = services[msg.action];
 
   ws.once("close", function() { sender.emit("close"); });
 

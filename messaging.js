@@ -118,7 +118,13 @@ module.exports = {
   immediateSend: function(sender, receiver, msg, thenDo) {
     var msgString = JSON.stringify(msg);
     logger.log("IMMEDIATESEND", "%s %s -> %s", msg.action, msg.sender, msg.target);
-    sender.sendString(receiver, msgString, thenDo);
+
+    var actions = lang.fun.either(
+      function() { thenDo && thenDo(new Error('timeout!')); },
+      function(err) { thenDo && thenDo(err); });
+    setTimeout(actions[0], 2000);
+
+    sender.sendString(receiver, msgString, actions[1]);
     return msg;
   }
 

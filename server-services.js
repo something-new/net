@@ -21,8 +21,8 @@ module.exports = {
 
   registerServer: function(self, sender, msg) {
     var id = sender.id;
-    self.serverSessions[id] = sender;
-    sender.on("close", function() { delete self.serverSessions[id]; });
+    self.acceptedServerSessions[id] = sender;
+    sender.on("close", function() { delete self.acceptedServerSessions[id]; });
     messaging.answer(self, sender, msg, {
       success: true,
       tracker: {id: self.id}

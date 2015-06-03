@@ -1,6 +1,5 @@
 var lang = require("lively.lang");
 var messaging = require("./messaging");
-var client = require("./client");
 
 module.exports = {
 
@@ -17,5 +16,12 @@ module.exports = {
 
   heartbeat: function(self, sender, msg) {
     messaging.answer(self, sender, msg, {time: Date.now()});
+  },
+
+  close: function(self, sender, msg) {
+    messaging.answer(self, sender, msg, {status: "OK"});
+    setTimeout(function() {
+      require("./client").close(self);
+    }, 20);
   }
 }

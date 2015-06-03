@@ -16,8 +16,12 @@ function trackerSessionsRemote(tracker, ignored, thenDo) {
   ignored = lang.obj.clone(ignored || []);
   var otherTrackers = [];
 
-  for (var id in tracker.serverSessions) {
-    var otherServer = tracker.serverSessions[id];
+  var serverSessions = lang.obj.merge(
+    tracker.ownedServerSessions,
+    tracker.acceptedServerSessions);
+
+  for (var id in serverSessions) {
+    var otherServer = serverSessions[id];
     if (ignored.indexOf(id) > -1) continue;
     otherTrackers.push(otherServer);
     ignored.push(id);
