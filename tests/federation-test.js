@@ -72,35 +72,37 @@ describe("federation", function() {
     });
   });
 
-  it("deals with client close", function(done) {
-    lang.fun.composeAsync(
-      n => client.close(client2, n),
-      n => sessions.knownBy(tracker1, n)
-    )((err, sessions) => {
-      if (err) return done(err);
-      expect(sessions).to.have.length(3);
-      expect(sessions).containSubset([
-        {id: client1.id},
-        {id: tracker1.id},
-        {id: tracker2.id},
-      ]);
-      done();
+  describe("failure", function() {
+    it("client", function(done) {
+      lang.fun.composeAsync(
+        n => client.close(client2, n),
+        n => sessions.knownBy(tracker1, n)
+      )((err, sessions) => {
+        if (err) return done(err);
+        expect(sessions).to.have.length(3);
+        expect(sessions).containSubset([
+          {id: client1.id},
+          {id: tracker1.id},
+          {id: tracker2.id},
+        ]);
+        done();
+      });
     });
-  });
-
-  it("deals with server close", function(done) {
-    lang.fun.composeAsync(
-      n => client.close(client2, n),
-      n => server.close(tracker2, n),
-      n => sessions.knownBy(tracker1, n)
-    )((err, sessions) => {
-      if (err) return done(err);
-      expect(sessions).to.have.length(2);
-      expect(sessions).containSubset([
-        {id: client1.id},
-        {id: tracker1.id},
-      ]);
-      done();
+    
+    it("server", function(done) {
+      lang.fun.composeAsync(
+        // n => client.close(client2, n),
+        n => server.close(tracker2, n),
+        n => sessions.knownBy(tracker1, n)
+      )((err, sessions) => {
+        if (err) return done(err);
+        expect(sessions).to.have.length(2);
+        expect(sessions).containSubset([
+          {id: client1.id},
+          {id: tracker1.id},
+        ]);
+        done();
+      });
     });
   });
 
