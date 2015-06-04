@@ -64,7 +64,6 @@ function actualSend(sender, receiver, msg, thenDo) {
     return;
   }
 
-  msg = ensureMessageProperties(sender, receiver, msg);
   logger.log("send", "%s, %s (%s) -> %s",
     msg.action,
     msg.sender, util.keyForValue(ConnectionStates, sender.connectionState),
@@ -141,6 +140,26 @@ module.exports = {
     }
 
     return msg;
-  }
+  },
 
+  relay: function(proxy, sender, target, msg, thenDo) {
+    logger.log("relay send", "%s %s (to %s)",
+      msg.action, msg.id, msg.action, msg.target);
+
+    var relayedMsg = util.assoc(msg, "sender", proxy.id),
+        origSender = msg.sender;
+    msg.relayedFor = origSender;
+
+    return module.exports.sendAndReceive(
+      proxy, target, relayedMsg,
+      function(err, answer) {
+        if (err) {
+          module.exports.answer(proxy, sender, {error: String(err)});
+        } else {
+          answer = util.assoc(answer, "target", sender.id);
+          module.exports.send(proxy, sender, answer);
+        }
+        thenDo && thenDo(err, answer);
+    });
+  }
 }

@@ -19,7 +19,8 @@ describe("federation", function() {
   var tracker1, tracker2,
       client1, client2;
 
-  beforeEach(done => {
+  beforeEach(function(done) {
+    console.log("[TESTING] >>> \"%s\"", this.currentTest.title);
     lang.fun.waitForAll([
       n => tracker1 = server.start({port: port1}, n),
       n => tracker2 = server.start({port: port2}, n),
@@ -29,7 +30,8 @@ describe("federation", function() {
     ], done);
   });
   
-  afterEach(done => {
+  afterEach(function(done) {
+    console.log("[TESTING DONE] <<< \"%s\"", this.currentTest.title);
     lang.fun.waitForAll([
       n => client.close(client1, n),
       n => client.close(client2, n),

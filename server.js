@@ -19,18 +19,18 @@ function start(options, thenDo) {
   var server = new WebSocketServer(options);
   var tracker = lang.events.makeEmitter({
     isTracker: true,
-    id: "nodejs-tracker-" + uuid.v4(),
+    id: options.id || "nodejs-tracker-" + uuid.v4(),
     server: server,
     services: lang.obj.merge(defaultServices, serverServices),
     clientSessions: {},
     ownedServerSessions: {},
     acceptedServerSessions: {},
-    
+
     connectionState: messaging.ConnectionStates.CONNECTING,
     sendState: messaging.SendStates.IDLE,
 
     sendString: function(receiver, msgString, thenDo) {
-      if (!receiver.ws) return thenDo && thenDo(new Error("No websocket"));
+      if (!receiver || !receiver.ws) return thenDo && thenDo(new Error("No websocket"));
       receiver.ws.send(msgString, function(err) {
         if (err && thenDo) thenDo(err);
       });
@@ -94,7 +94,7 @@ function close(tracker, thenDo) {
             return function(n) {
               console.log("server closes remote client %s", ea.id);
               messaging.send(tracker, ea, {action: "close"});
-              setTimeout(n, 20); 
+              setTimeout(n, 20);
             }
           }), n);
     },
@@ -116,19 +116,37 @@ function close(tracker, thenDo) {
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 function receiveMessage(tracker, ws, msg) {
+  logger.log("tracker recv", "%s got %s", tracker.id,
+    msg.inResponseTo ?
+      "answer for " + msg.action.replace(/Result$/, "") :
+      msg.action);
+
+  if (msg.inResponseTo) {
+    tracker.emit("message", msg);
+    tracker.emit("answer-" + msg.inResponseTo, msg);
+    return;
+  }
+
+  if (msg.target && msg.target !== tracker.id) {
+    if (tracker.clientSessions[msg.target]) {
+      messaging.relay(tracker, {ws: ws, id: msg.sender}, tracker.clientSessions[msg.target], msg);
+    } else {
+      logger.log("relay failed", "tracker %s could not relay %s (%s -> %s)",
+        tracker.id, msg.action, msg.sender, msg.target);
+      messaging.answer(
+        tracker, sender, msg,
+        {error: "target not found"});
+    }
+    return;
+  }
+
   var services = tracker.services || {},
       sender = lang.events.makeEmitter({id: msg.sender, ws: ws}),
       handler = services[msg.action];
 
   ws.once("close", function() { sender.emit("close"); });
 
-  logger.log("tracker recv", "%s got %s", tracker.id,
-    msg.inResponseTo ?
-      "answer for " + msg.action : msg.action);
-
-  if (msg.inResponseTo) {
-    tracker.emit("message", msg);
-  } else if (handler) {
+  if (handler) {
     try {
       handler(tracker, sender, msg);
     } catch (e) {

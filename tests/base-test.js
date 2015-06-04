@@ -13,7 +13,7 @@ var port = 10082;
 
 describe('client and server', function() {
 
-  var tracker, client1;
+  var tracker, client1, client2;
   beforeEach(function(done) {
     console.log("[TESTING] >>> \"%s\"", this.currentTest.title);
     lang.fun.composeAsync(
@@ -26,7 +26,8 @@ describe('client and server', function() {
   afterEach(function(done) {
     console.log("[TESTING DONE] <<< \"%s\"", this.currentTest.title);
     lang.fun.waitForAll([
-      n => client.close(client1, n),
+      n => client1 ? client.close(client1, n) : n(),
+      n => client2 ? client.close(client2, n) : n(),
       n => server.close(tracker, n)
     ], done);
   });
@@ -41,8 +42,27 @@ describe('client and server', function() {
             "echo", "foo", (err, msg) => err && done(err));
           client1.once("answer-"+msg.messageId, msg => n(null, msg));
         }
-      )((err, {action, data}) => {
+      )((err, {action, data, sender}) => {
         if (err) return done(err);
+        expect(sender).eq(tracker.id);
+        expect(action).eq("echoResult");
+        expect(data).eq("foo");
+        done();
+      });
+    });
+
+    it("sends message from client to client", function(done) {
+      lang.fun.composeAsync(
+        n => client2 = client.start({port: port}, n),
+        (_, n) => {
+          var msg = messaging.sendTo(
+            client1, {id: client2.id},
+            "echo", "foo", (err, msg) => err && done(err));
+          client1.once("answer-"+msg.messageId, msg => n(null, msg));
+        }
+      )((err, {action, data, sender}) => {
+        if (err) return done(err);
+        expect(sender).eq(client2.id);
         expect(action).eq("echoResult");
         expect(data).eq("foo");
         done();
@@ -120,7 +140,7 @@ describe('client and server', function() {
       lang.fun.composeAsync(
         n => server.close(tracker, n),
         n => setTimeout(n, 200),
-        n => tracker = server.start({port: port}, n),
+        n => tracker = server.start({id: tracker.id, port: port}, n),
         (_, n) => setTimeout(n, 200),
         n => messaging.sendAndReceive(
             client1, {id: client1.trackerId},
