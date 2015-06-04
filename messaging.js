@@ -23,7 +23,7 @@ function getSendQueue(sender) {
 }
 
 function scheduleSend(sender, receiver, msg, thenDo) {
-  logger.log("queueing send", "%s %s", sender.id, msg.action);
+  logger.log("queueing send", sender, "%s", msg.action);
   var q = getSendQueue(sender),
       data = [sender, receiver, msg, thenDo];
   q[msg.bypassQueue ? "unshift" : "push"](data);
@@ -64,9 +64,9 @@ function actualSend(sender, receiver, msg, thenDo) {
     return;
   }
 
-  logger.log("send", "%s, %s (%s) -> %s",
+  logger.log("send", sender, "%s (%s) -> %s",
     msg.action,
-    msg.sender, util.keyForValue(ConnectionStates, sender.connectionState),
+    util.keyForValue(ConnectionStates, sender.connectionState),
     msg.target);
 
   try {
@@ -144,9 +144,9 @@ module.exports = {
 
   receive: function(receiver, connection, msg) {
     if (receiver.receivedMessages[msg.messageId]) {
-      logger.log("message already received",
-        "%s got message already received %s %s",
-        receiver.id, msg.action, msg.messageId);
+      logger.log("message already received", receiver,
+        "got message already received %s %s",
+        msg.action, msg.messageId);
       return;
     }
     receiver.receivedMessages[msg.messageId] = Date.now();
@@ -154,7 +154,7 @@ module.exports = {
     var relay = msg.target && msg.target !== receiver.id,
         action = relay ? "relay" : msg.action;
 
-    logger.log("receive", "%s got %s", receiver.id,
+    logger.log("receive", receiver, "got %s",
       msg.inResponseTo ?
         "answer for " + action.replace(/Result$/, "") : action);
 
@@ -169,11 +169,11 @@ module.exports = {
 
     if (relay) {
       if (handler) {
-        logger.log("relay", "%s relays %s (%s -> %s)",
-          receiver.id, msg.action, msg.sender, msg.target);
+        logger.log("relay", receiver, "relays %s (%s -> %s)",
+          msg.action, msg.sender, msg.target);
       } else {
-        logger.log("relay failed", "%s could not relay %s (%s -> %s)",
-          receiver.id, msg.action, msg.sender, msg.target, msg);
+        logger.log("relay failed", receiver, "could not relay %s (%s -> %s)",
+          msg.action, msg.sender, msg.target, msg);
         return;
       }
     }

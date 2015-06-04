@@ -30,10 +30,9 @@ function createClient(options, thenDo) {
 
   client._connectionState = client.connectionState;
   client.__defineSetter__("connectionState", function(val) {
-      logger.log("client state", "%s -> %s (%s)",
+      logger.log("client state", client, "%s -> %s",
       util.keyForValue(ConnectionStates, this._connectionState),
-      util.keyForValue(ConnectionStates, val),
-      client.id);
+      util.keyForValue(ConnectionStates, val));
     return this._connectionState = val;
   });
   client.__defineGetter__("connectionState", function() {
@@ -83,7 +82,7 @@ function createWsConnection(client, options, thenDo) {
   });
 
   ws.once("error", function(err) {
-    logger.log("client ws creation error", err);
+    logger.log("client ws creation error", client, err);
     onConnectionFailure(err);
   });
 
@@ -100,8 +99,8 @@ function onClose(client) {
   if (!client.options.autoReconnect) client.connectionState = ConnectionStates.CLOSED;
   else if (client.connectionState !== ConnectionStates.CLOSED) client.connectionState = ConnectionStates.CONNECTING;
 
-  logger.log("client close", "client %s disconnected from %s, reconnecting: %s",
-    client.id, client.options.url, client.connectionState !== ConnectionStates.CLOSED);
+  logger.log("client close", client, "disconnected from %s, reconnecting: %s",
+    client.options.url, client.connectionState !== ConnectionStates.CLOSED);
   if (client.connectionState === ConnectionStates.CLOSED) return;
 
   reconnect(client, 100);
@@ -109,7 +108,7 @@ function onClose(client) {
   function reconnect(client, delay) {
     if (client.connectionState === ConnectionStates.CLOSED) return;
 
-    logger.log("client reconnect", "%s to %s", client.id, client.options.url);
+    logger.log("client reconnect", client, "to %s", client.options.url);
 
     createWsConnection(client, client.options, function(err) {
       if (err) {

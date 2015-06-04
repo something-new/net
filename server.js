@@ -31,6 +31,8 @@ function start(options, thenDo) {
 
     receivedMessages: [],
 
+    options: options,
+
     sendString: function(receiver, msgString, thenDo) {
       if (!receiver || !receiver.connection) return thenDo && thenDo(new Error("No websocket"));
       receiver.connection.send(msgString, function(err) {
@@ -41,7 +43,7 @@ function start(options, thenDo) {
 
   tracker._connectionState = tracker.connectionState;
   tracker.__defineSetter__("connectionState", function(val) {
-      logger.log("tracker state", "%s -> %s",
+      logger.log("tracker state", tracker, "%s -> %s",
       util.keyForValue(messaging.ConnectionStates, this._connectionState),
       util.keyForValue(messaging.ConnectionStates, val));
     return this._connectionState = val;
@@ -68,11 +70,11 @@ function start(options, thenDo) {
 
   server.on("listening", function() {
     tracker.connectionState = messaging.ConnectionStates.CONNECTED;
-    logger.log("tracker started", "%s", tracker.id);
+    logger.log("tracker started", tracker);
   });
 
-  server.on("error", function(err) { logger.log("tracker error", "%s", tracker.id, err); });
-  server.on("close", function() { logger.log("tracker closed", "%s", tracker.id); });
+  server.on("error", function(err) { logger.log("tracker error", tracker, err); });
+  server.on("close", function() { logger.log("tracker closed", tracker); });
 
   if (thenDo) thenDo(null, tracker);
 
@@ -87,7 +89,7 @@ function close(tracker, thenDo) {
         lang.obj.values(tracker.ownedServerSessions)
           .map(function(ea) {
             return function(n) {
-              console.log("server closes client %s", ea.id);
+              logger.log("server closes client", tracker, ea.id);
               client.close(ea, n);
             }
           }), n);
@@ -98,7 +100,7 @@ function close(tracker, thenDo) {
         lang.obj.values(tracker.acceptedServerSessions)
           .map(function(ea) {
             return function(n) {
-              console.log("server closes remote client %s", ea.id);
+              logger.log("server closes remote client", tracker, ea.id);
               messaging.send(tracker, ea, {action: "close"});
               setTimeout(n, 20);
             }

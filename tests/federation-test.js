@@ -23,11 +23,11 @@ describe("federation", function() {
   beforeEach(function(done) {
     console.log("[TESTING] >>> \"%s\"", this.currentTest.title);
     lang.fun.waitForAll([
-      n => tracker1 = server.start({port: port1}, n),
-      n => tracker2 = server.start({port: port2}, n),
+      n => tracker1 = server.start({debug: true, port: port1}, n),
+      n => tracker2 = server.start({debug: true, port: port2}, n),
       n => federation.connect(tracker1, {port: port2}, n),
-      n => client1 = client.start({port: port1}, n),
-      n => client2 = client.start({port: port2}, n)
+      n => client1 = client.start({debug: true, port: port1}, n),
+      n => client2 = client.start({debug: true, port: port2}, n)
     ], done);
   });
   
@@ -83,8 +83,8 @@ describe("federation", function() {
     
     it("msg send: c1 => t1 => t2 => t3 => c3", function(done) {
       lang.fun.composeAsync(
-        n => tracker3 = server.start({port: port3}, n),
-        (_, n) => client3 = client.start({port: port3}, n),
+        n => tracker3 = server.start({debug: true, port: port3}, n),
+        (_, n) => client3 = client.start({debug: true, port: port3}, n),
         (_, n) => federation.connect(tracker2, {port: port3}, n),
         (_, n) => {
           console.log("t1: %s\nt2: %s\nt3: %s", tracker1.id,tracker2.id,tracker3.id);
