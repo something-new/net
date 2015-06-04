@@ -34,7 +34,7 @@ describe('client and server', function() {
 
   describe("messaging", function() {
     
-    it("inits client and echos", function(done) {
+    it("msg: c1 => t1", function(done) {
       lang.fun.composeAsync(
         n => {
           var msg = messaging.sendTo(
@@ -51,7 +51,7 @@ describe('client and server', function() {
       });
     });
 
-    it("sends message from client to client", function(done) {
+    it("msg: c1 => t1 => c2", function(done) {
       lang.fun.composeAsync(
         n => client2 = client.start({port: port}, n),
         (_, n) => {
@@ -88,6 +88,31 @@ describe('client and server', function() {
         });
       });
   
+    });
+
+    describe("duplicated messages", function() {
+      it("are send only once", function(done) {
+        var receivedBy1 = [],
+            receivedBy2 = [];
+        lang.fun.composeAsync(
+          n => client2 = client.start({port: port}, n),
+          (_, n) => {
+            client1.on("message", m => receivedBy1.push(m));
+            client2.on("message", m => receivedBy2.push(m));
+            n();
+          },
+          n => {
+            var msg = messaging.sendTo(client1, {id: client2.id}, "echo", "foo");
+            messaging.send(client1, {id: client2.id}, msg);
+            setTimeout(n, 200);
+          }
+        )(err => {
+          if (err) return done(err);
+          expect(receivedBy1).to.have.length(1);
+          expect(receivedBy2).to.have.length(1);
+          done();
+        });
+      });
     });
 
   });

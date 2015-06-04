@@ -57,9 +57,6 @@ function trackerSessions(tracker, ignored, thenDo) {
 
 module.exports = {
 
-  trackerSessionsLocal: trackerSessionsLocal,
-  trackerSessionsRemote: trackerSessionsRemote,
-
   knownBy: function(participant, ignored, thenDo) {
     if (typeof ignored === "function") {
       thenDo = ignored; ignored = null;

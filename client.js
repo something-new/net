@@ -15,15 +15,16 @@ function createClient(options, thenDo) {
   var client = lang.events.makeEmitter({
     id: options.id,
     services: lang.obj.clone(defaultServices),
-    ws: null,
+    connection: null,
 
     connectionState: ConnectionStates.CLOSED,
     sendState: SendStates.IDLE,
+    receivedMessages: {},
 
     options: options,
 
     sendString: function(receiver, msgString, thenDo) {
-      return client.ws.send(msgString, thenDo);;
+      return client.connection.send(msgString, thenDo);;
     }
   });
 
@@ -60,7 +61,7 @@ function createWsConnection(client, options, thenDo) {
       console.error("Client cannot read incoming message %s", msgString);
       return;
     }
-    receiveMessage(client, ws, msg);
+    messaging.receive(client, ws, msg);
   }
 
   if (client.connectionState === ConnectionStates.CONNECTED)
@@ -69,7 +70,7 @@ function createWsConnection(client, options, thenDo) {
   if (client.connectionState !== ConnectionStates.CONNECTING)
     client.connectionState = ConnectionStates.CONNECTING;
 
-  var ws = client.ws = new WebSocket(options.url);
+  var ws = client.connection = new WebSocket(options.url);
 
   ws.on("message", onMessage);
 
@@ -136,37 +137,6 @@ function sendRegisterMessage(client, opts, thenDo) {
   });
 }
 
-function receiveMessage(client, ws, msg) {
-  logger.log("client recv", "%s got %s", client.id,
-    msg.inResponseTo ?
-      "answer for " + msg.action.replace(/Result$/, "") :
-      msg.action);
-
-  if (msg.inResponseTo) {
-    client.emit("message", msg);
-    client.emit("answer-" + msg.inResponseTo, msg);
-    return;
-  }
-
-  var services = client.services || {},
-      sender = lang.events.makeEmitter({id: msg.sender, ws: ws}),
-      handler = services[msg.action];
-
-  ws.once("close", function() { sender.emit("close"); });
-
-  if (handler) {
-    try {
-      handler(client, sender, msg);
-    } catch (e) {
-      console.error("Error in service handler %s:", msg.action, e);
-    }
-  } else {
-    messaging.answer(
-      client, sender, msg,
-      {error: "message not understood"});
-  }
-}
-
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 function start(options, thenDo) {
@@ -192,7 +162,7 @@ function close(client, thenDo) {
 
   client.connectionState = ConnectionStates.CLOSED;
 
-  var ws = client.ws;
+  var ws = client.connection;
   ws && ws.close();
   if (!thenDo) return;
   if (!ws || ws.readyState === WebSocket.CLOSED) return thenDo(null);

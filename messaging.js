@@ -59,7 +59,7 @@ function ensureMessageProperties(sender, receiver, msg) {
 function actualSend(sender, receiver, msg, thenDo) {
   if (sender.connectionState === ConnectionStates.CLOSED) {
     var errString = "cannot send, " + sender.id + " not connected";
-    console.log(errString);
+    console.error(errString);
     if (thenDo) thenDo(new Error(errString));
     return;
   }
@@ -144,22 +144,72 @@ module.exports = {
 
   relay: function(proxy, sender, target, msg, thenDo) {
     logger.log("relay send", "%s %s (to %s)",
-      msg.action, msg.id, msg.action, msg.target);
+      msg.action, msg.messageId, msg.target);
 
-    var relayedMsg = util.assoc(msg, "sender", proxy.id),
-        origSender = msg.sender;
-    msg.relayedFor = origSender;
-
-    return module.exports.sendAndReceive(
-      proxy, target, relayedMsg,
-      function(err, answer) {
-        if (err) {
-          module.exports.answer(proxy, sender, {error: String(err)});
-        } else {
-          answer = util.assoc(answer, "target", sender.id);
-          module.exports.send(proxy, sender, answer);
-        }
-        thenDo && thenDo(err, answer);
+    var relayedMsg = lang.obj.merge(msg, {
+      relayedFor: msg.sender,
+      proxies: (msg.relayedBy || []).concat([proxy.id])
     });
+
+    return module.exports.send(proxy, target, relayedMsg);
+  },
+
+  receive: function(receiver, connection, msg) {
+
+    if (receiver.receivedMessages[msg.messageId]) {
+      logger.log("message already received",
+        "%s got message already received %s %s",
+        receiver.id, msg.action, msg.messageId);
+      return;
+    }
+    receiver.receivedMessages[msg.messageId] = Date.now();
+  
+    logger.log("receive", "%s got %s", receiver.id,
+      msg.inResponseTo ?
+        "answer for " + msg.action.replace(/Result$/, "") :
+        msg.action);
+  
+    receiver.emit("message", msg);
+  
+    if (msg.target && msg.target !== receiver.id) {
+      if (receiver.clientSessions[msg.target]) {
+        module.exports.relay(
+          receiver, {connection: connection, id: msg.sender},
+          receiver.clientSessions[msg.target], msg);
+      } else {
+        logger.log("relay failed", "%s could not relay %s (%s -> %s)",
+          receiver.id, msg.action, msg.sender, msg.target);
+        module.exports.answer(
+          receiver, sender, msg,
+          {error: "target not found"});
+      }
+      return;
+    }
+  
+    if (msg.inResponseTo) {
+      receiver.emit("answer-" + msg.inResponseTo, msg);
+      return;
+    }
+  
+    var services = receiver.services || {},
+        sender = lang.events.makeEmitter({
+          id: msg.sender,
+          connection: connection}),
+        handler = services[msg.action];
+  
+    connection.once("close", function() { sender.emit("close"); });
+  
+    if (handler) {
+      try {
+        handler(receiver, sender, msg);
+      } catch (e) {
+        console.error("Error in service handler %s:", msg.action, e);
+      }
+    } else {
+      module.exports.answer(
+        receiver, sender, msg,
+        {error: "message not understood"});
+    }
   }
+
 }

@@ -29,9 +29,11 @@ function start(options, thenDo) {
     connectionState: messaging.ConnectionStates.CONNECTING,
     sendState: messaging.SendStates.IDLE,
 
+    receivedMessages: [],
+
     sendString: function(receiver, msgString, thenDo) {
-      if (!receiver || !receiver.ws) return thenDo && thenDo(new Error("No websocket"));
-      receiver.ws.send(msgString, function(err) {
+      if (!receiver || !receiver.connection) return thenDo && thenDo(new Error("No websocket"));
+      receiver.connection.send(msgString, function(err) {
         if (err && thenDo) thenDo(err);
       });
     }
@@ -56,7 +58,7 @@ function start(options, thenDo) {
         console.error("Tracker cannot read incoming message " + msgString);
         return;
       }
-      receiveMessage(tracker, ws, msg);
+      messaging.receive(tracker, ws, msg);
     });
   });
 
@@ -111,52 +113,6 @@ function close(tracker, thenDo) {
       }, 100);
     }
   )(thenDo);
-}
-
-// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-function receiveMessage(tracker, ws, msg) {
-  logger.log("tracker recv", "%s got %s", tracker.id,
-    msg.inResponseTo ?
-      "answer for " + msg.action.replace(/Result$/, "") :
-      msg.action);
-
-  if (msg.inResponseTo) {
-    tracker.emit("message", msg);
-    tracker.emit("answer-" + msg.inResponseTo, msg);
-    return;
-  }
-
-  if (msg.target && msg.target !== tracker.id) {
-    if (tracker.clientSessions[msg.target]) {
-      messaging.relay(tracker, {ws: ws, id: msg.sender}, tracker.clientSessions[msg.target], msg);
-    } else {
-      logger.log("relay failed", "tracker %s could not relay %s (%s -> %s)",
-        tracker.id, msg.action, msg.sender, msg.target);
-      messaging.answer(
-        tracker, sender, msg,
-        {error: "target not found"});
-    }
-    return;
-  }
-
-  var services = tracker.services || {},
-      sender = lang.events.makeEmitter({id: msg.sender, ws: ws}),
-      handler = services[msg.action];
-
-  ws.once("close", function() { sender.emit("close"); });
-
-  if (handler) {
-    try {
-      handler(tracker, sender, msg);
-    } catch (e) {
-      console.error("Error in service handler %s:", msg.action, e);
-    }
-  } else {
-    messaging.answer(
-      tracker, sender, msg,
-      {error: "message not understood"});
-  }
 }
 
 function addService(tracker, name, handler) {
