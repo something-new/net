@@ -104,11 +104,14 @@ describe('client and server', function() {
         n => setTimeout(n, 200),
         n => tracker = server.start({port: port}, n),
         (_, n) => setTimeout(n, 200),
-        n => messaging.sendAndReceive(
+        n => {
+          console.log("TEST NOTE: A WARNING MESSAGE IS EXPECTED");
+          messaging.sendAndReceive(
             client1, {id: client1.trackerId},
-            {action: "echo", data: "foo"}, n)
+            {action: "echo", data: "foo"}, n);
+        }
       )((err, msg) => {
-        expect(String(err)).eq("Error: client not connected");
+        expect(String(err)).match(/cannot send.*not connected/i);
         done();
       });
     });

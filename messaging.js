@@ -3,6 +3,7 @@ var uuid = require("node-uuid");
 var logger = require("./logger");
 var util = require("./util");
 
+var counter = 1;
 
 var ConnectionStates = {
   CLOSED: 1,
@@ -21,10 +22,12 @@ function getSendQueue(sender) {
   return sendQueues[sender] || (sendQueues[sender] = []);
 }
 
-function queueSend(sender, receiver, msg, thenDo) {
-  logger.log("QUEUEING SEND", "%s %s", sender.id, msg.action);
-  var q = getSendQueue(sender);
-  q.push([sender, receiver, msg, thenDo]);
+function scheduleSend(sender, receiver, msg, thenDo) {
+  logger.log("queueing send", "%s %s", sender.id, msg.action);
+  var q = getSendQueue(sender),
+      data = [sender, receiver, msg, thenDo];
+  q[msg.bypassQueue ? "unshift" : "push"](data);
+  sender.once("open", function() { deliverSendQueue(sender); });
 }
 
 function deliverSendQueue(sender) {
@@ -39,7 +42,7 @@ function deliverSendQueue(sender) {
     return;
   }
 
-  module.exports.immediateSend.apply(null, q.shift());
+  actualSend.apply(null, q.shift());
 }
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -52,6 +55,46 @@ function ensureMessageProperties(sender, receiver, msg) {
 }
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+function actualSend(sender, receiver, msg, thenDo) {
+  if (sender.connectionState === ConnectionStates.CLOSED) {
+    var errString = "cannot send, " + sender.id + " not connected";
+    console.log(errString);
+    if (thenDo) thenDo(new Error(errString));
+    return;
+  }
+
+  msg = ensureMessageProperties(sender, receiver, msg);
+  logger.log("send", "%s, %s (%s) -> %s",
+    msg.action,
+    msg.sender, util.keyForValue(ConnectionStates, sender.connectionState),
+    msg.target);
+
+  try {
+    var msgString = JSON.stringify(msg);
+  } catch (e) {
+    var errMsg = "Cannot stringify message " + e;
+    console.error(errMsg);
+    thenDo && thenDo(new Error(errMsg));
+  }
+
+  var actions = lang.fun.either(
+    function() {
+      // client.sendState = client.sendQueue.length ? SendStates.SENDING : SendStates.IDLE;
+      // sender.sendState = SendStates.IDLE;
+      thenDo && thenDo(new Error('timeout!'));
+    },
+    function(err) {
+      // sender.sendState = SendStates.IDLE;
+      thenDo && thenDo(err);
+    });
+
+  setTimeout(actions[0], 2000);
+
+  // sender.sendState = SendStates.SENDING;
+  sender.sendString(receiver, msgString, actions[1]);
+  return msg;
+}
 
 module.exports = {
 
@@ -72,14 +115,7 @@ module.exports = {
   },
 
   sendAndReceive: function(sender, receiver, msg, thenDo) {
-    // if (typeof immediate === "function") {
-    //   thenDo === immediate; immediate = false;
-    // } else if (typeof immediate === "undefined") {
-    //   immediate = false; thenDo = null;
-    // }
-
     msg = ensureMessageProperties(sender, receiver, msg);
-
     thenDo = thenDo && lang.fun.once(thenDo);
 
     var onReceive = function(answer) { thenDo && thenDo(null, answer); }
@@ -93,38 +129,17 @@ module.exports = {
     return module.exports.send(sender, receiver, msg, onMessageSend);
   },
 
-  send: function(self, receiver, msg, thenDo) {
-    ensureMessageProperties(self, receiver, msg);
+  send: function(sender, receiver, msg, thenDo) {
+    msg = ensureMessageProperties(sender, receiver, msg);
 
-    logger.log("SEND", "%s (%s) %s", self.id, util.keyForValue(ConnectionStates, self.connectionState), msg.action);
+    if (sender.connectionState === ConnectionStates.CONNECTING
+     || sender.sendState === SendStates.SENDING
+     || !!getSendQueue(sender).length) {
+      scheduleSend(sender, receiver, msg, thenDo);
+    } else {
+      actualSend(sender, receiver, msg, thenDo);
+    }
 
-    // if (self.connectionState === ConnectionStates.CLOSED) {
-    //   console.log("cannot send, " + self.id + " not connected ");
-    //   if (thenDo) thenDo(new Error("cannot send, " + self.id + " not connected "));
-    //   return;
-    // }
-
-    // if (self.connectionState === ConnectionStates.CONNECTING
-    // || self.sendState === SendStates.SENDING) {
-    //   queueSend(self, receiver, msg, thenDo);
-    // } else {
-    //   return module.exports.immediateSend(self, receiver, msg, thenDo);
-    // }
-
-      return module.exports.immediateSend(self, receiver, msg, thenDo);
-    return msg;
-  },
-
-  immediateSend: function(sender, receiver, msg, thenDo) {
-    var msgString = JSON.stringify(msg);
-    logger.log("IMMEDIATESEND", "%s %s -> %s", msg.action, msg.sender, msg.target);
-
-    var actions = lang.fun.either(
-      function() { thenDo && thenDo(new Error('timeout!')); },
-      function(err) { thenDo && thenDo(err); });
-    setTimeout(actions[0], 2000);
-
-    sender.sendString(receiver, msgString, actions[1]);
     return msg;
   }
 

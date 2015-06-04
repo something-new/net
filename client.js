@@ -11,28 +11,6 @@ var defaultPort = 10081;
 var ConnectionStates = messaging.ConnectionStates;
 var SendStates = messaging.SendStates;
 
-function sendString(client, receiver, msgString, thenDo) {
-  if (client.connectionState === ConnectionStates.CLOSED
-   || (!client.ws && client.connectionState !== ConnectionStates.CONNECTING)) {
-    if (thenDo) thenDo(new Error("client not connected"));
-    return;
-  }
-
-  if (client.connectionState === ConnectionStates.CONNECTING
-   || client.sendState === SendStates.SENDING
-   || client.sendQueue.length) {
-    client.sendQueue.push([receiver, msgString, thenDo]);
-    return;
-  }
-
-  client.sendState = SendStates.SENDING;
-  client.ws.send(msgString, function(err) {
-    client.sendState = client.sendQueue.length ? SendStates.SENDING : SendStates.IDLE;
-    deliverSendQueue(client);
-    thenDo && thenDo(err);
-  });
-}
-
 function createClient(options, thenDo) {
   var client = lang.events.makeEmitter({
     id: options.id,
@@ -43,9 +21,9 @@ function createClient(options, thenDo) {
     sendState: SendStates.IDLE,
 
     options: options,
-    sendQueue: [],
+
     sendString: function(receiver, msgString, thenDo) {
-      return sendString(client, receiver, msgString, thenDo);
+      return client.ws.send(msgString, thenDo);;
     }
   });
 
@@ -68,39 +46,12 @@ function createClient(options, thenDo) {
   return client;
 }
 
-function onClose(client) {
-  if (!client.options.autoReconnect) client.connectionState = ConnectionStates.CLOSED;
-  else if (client.connectionState !== ConnectionStates.CLOSED) client.connectionState = ConnectionStates.CONNECTING;
-
-  logger.log("client close", "client %s disconnected from %s, reconnecting: %s",
-    client.id, client.options.url, client.connectionState !== ConnectionStates.CLOSED);
-  if (client.connectionState === ConnectionStates.CLOSED) return;
-
-  reconnect(client, 100);
-
-  function reconnect(client, delay) {
-    if (client.connectionState === ConnectionStates.CLOSED) return;
-
-    logger.log("client reconnect", "%s to %s", client.id, client.options.url);
-
-    createWsConnection(client, client.options, function(err) {
-      if (err) {
-        if (delay < 3000) delay = delay + 400;
-        setTimeout(reconnect.bind(null, client, delay), delay);
-        return;
-      }
-
-      deliverSendQueue(client);
-    });
-  }
-}
-
 function createWsConnection(client, options, thenDo) {
-
-  function whenEstablished(err, registerAnswer) {
-    if (!err) client.emit('open', client);
-    thenDo && thenDo(err, client);
-  }
+  var actions = lang.fun.either(
+    function(err) { thenDo && thenDo(err, client); },
+    function() { thenDo && thenDo(null, client); }),
+      onConnectionFailure = actions[0],
+      onConnectionSuccess = actions[1];
 
   function onMessage(msgString) {
     try {
@@ -129,60 +80,60 @@ function createWsConnection(client, options, thenDo) {
 
   ws.once("error", function(err) {
     logger.log("client ws creation error", err);
-    whenEstablished(err);
+    onConnectionFailure(err);
   });
 
   ws.once('open', function() {
     client.connectionState = ConnectionStates.CONNECTED;
-    if (!options.register) whenEstablished();
-    else sendRegisterMessage(client, options, whenEstablished);
+    client.emit('open', client);
+    if (!options.register) onConnectionSuccess();
+    else sendRegisterMessage(client, options, onConnectionSuccess);
   });
 
 }
 
-// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+function onClose(client) {
+  if (!client.options.autoReconnect) client.connectionState = ConnectionStates.CLOSED;
+  else if (client.connectionState !== ConnectionStates.CLOSED) client.connectionState = ConnectionStates.CONNECTING;
 
-function deliverSendQueue(client) {
-  if (!client.sendQueue.length) return;
+  logger.log("client close", "client %s disconnected from %s, reconnecting: %s",
+    client.id, client.options.url, client.connectionState !== ConnectionStates.CLOSED);
   if (client.connectionState === ConnectionStates.CLOSED) return;
 
-  if (client.connectionState === ConnectionStates.CONNECTING
-   || client.sendState === SendStates.SENDING) {
-    setTimeout(deliverSendQueue.bind(null, client), 100);
-    return;
-  }
+  reconnect(client, 100);
 
-  var next = client.sendQueue.shift();
-  client.sendString.apply(client, next);
+  function reconnect(client, delay) {
+    if (client.connectionState === ConnectionStates.CLOSED) return;
+
+    logger.log("client reconnect", "%s to %s", client.id, client.options.url);
+
+    createWsConnection(client, client.options, function(err) {
+      if (err) {
+        if (delay < 3000) delay = delay + 400;
+        setTimeout(reconnect.bind(null, client, delay), delay);
+        return;
+      }
+    });
+  }
 }
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 function sendRegisterMessage(client, opts, thenDo) {
-  var origSend = client.sendString;
-
-  // bypass queue
-  client.sendString = function(receiver, msgString, thenDo) {
-    client.ws.send(msgString, thenDo);
-  }
-
-  try {
-    var msg = messaging.sendAndReceive(client, null, {
-      action: opts.isFederationConnection ? "registerServer" : "registerClient",
-      id: client.id,
-      worldURL: require("os").hostname(),
-      user: client.name || "no-name",
-      timeOfCreation: Date.now(),
-      timeOfRegistration: Date.now(),
-      lastActivity: Date.now()
-    }, function(err, answer) {
-      client.trackerId = lang.Path("data.tracker.id").get(answer);
-      deliverSendQueue(client);
-      thenDo && thenDo(err);
-    });
-  } finally {
-    client.sendString = origSend;
-  }
+  var msg = messaging.sendAndReceive(client, null, {
+    bypassQueue: true,
+    action: opts.isFederationConnection ? "registerServer" : "registerClient",
+    id: client.id,
+    worldURL: require("os").hostname(),
+    user: client.name || "no-name",
+    timeOfCreation: Date.now(),
+    timeOfRegistration: Date.now(),
+    lastActivity: Date.now()
+  },
+  function(err, answer) {
+    client.trackerId = lang.Path("data.tracker.id").get(answer);
+    thenDo && thenDo(err);
+  });
 }
 
 function receiveMessage(client, ws, msg) {
