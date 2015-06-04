@@ -142,20 +142,7 @@ module.exports = {
     return msg;
   },
 
-  relay: function(proxy, sender, target, msg, thenDo) {
-    logger.log("relay send", "%s %s (to %s)",
-      msg.action, msg.messageId, msg.target);
-
-    var relayedMsg = lang.obj.merge(msg, {
-      relayedFor: msg.sender,
-      proxies: (msg.relayedBy || []).concat([proxy.id])
-    });
-
-    return module.exports.send(proxy, target, relayedMsg);
-  },
-
   receive: function(receiver, connection, msg) {
-
     if (receiver.receivedMessages[msg.messageId]) {
       logger.log("message already received",
         "%s got message already received %s %s",
@@ -163,42 +150,38 @@ module.exports = {
       return;
     }
     receiver.receivedMessages[msg.messageId] = Date.now();
-  
+
+    var relay = msg.target && msg.target !== receiver.id,
+        action = relay ? "relay" : msg.action;
+
     logger.log("receive", "%s got %s", receiver.id,
       msg.inResponseTo ?
-        "answer for " + msg.action.replace(/Result$/, "") :
-        msg.action);
-  
-    receiver.emit("message", msg);
-  
-    if (msg.target && msg.target !== receiver.id) {
-      if (receiver.clientSessions[msg.target]) {
-        module.exports.relay(
-          receiver, {connection: connection, id: msg.sender},
-          receiver.clientSessions[msg.target], msg);
-      } else {
-        logger.log("relay failed", "%s could not relay %s (%s -> %s)",
-          receiver.id, msg.action, msg.sender, msg.target);
-        module.exports.answer(
-          receiver, sender, msg,
-          {error: "target not found"});
-      }
-      return;
-    }
-  
-    if (msg.inResponseTo) {
+        "answer for " + action.replace(/Result$/, "") : action);
+
+    if (!relay && msg.inResponseTo) {
       receiver.emit("answer-" + msg.inResponseTo, msg);
       return;
     }
-  
+
     var services = receiver.services || {},
-        sender = lang.events.makeEmitter({
-          id: msg.sender,
-          connection: connection}),
-        handler = services[msg.action];
-  
+        sender = {id: msg.sender, connection: connection},
+        handler = services[action];
+
+    if (relay) {
+      if (handler) {
+        logger.log("relay", "%s relays %s (%s -> %s)",
+          receiver.id, msg.action, msg.sender, msg.target);
+      } else {
+        logger.log("relay failed", "%s could not relay %s (%s -> %s)",
+          receiver.id, msg.action, msg.sender, msg.target, msg);
+        return;
+      }
+    }
+
+      // FIXME
+    sender = lang.events.makeEmitter(sender);
     connection.once("close", function() { sender.emit("close"); });
-  
+
     if (handler) {
       try {
         handler(receiver, sender, msg);

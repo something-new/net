@@ -31,10 +31,10 @@ function trackerSessionsRemote(tracker, ignored, thenDo) {
 
   lang.arr.mapAsyncSeries(otherTrackers,
     function(trackerCon, _, n) {
-      messaging.sendAndReceive(trackerCon, {id: trackerCon.trackerId}, {
-        action: "knownSessions",
-        data: {ignoredTrackers: ignored}
-      }, function(err, answer) { n(err, answer ? answer.data : []); });
+      messaging.sendAndReceive(tracker,
+        {connection: trackerCon.connection, id: trackerCon.trackerId},
+        {action: "knownSessions",data: {ignoredTrackers: ignored}},
+        function(err, answer) { n(err, answer ? answer.data : []); });
     },
     function(err, nestedSessions) {
       var remoteSessions = nestedSessions

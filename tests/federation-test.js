@@ -86,7 +86,11 @@ describe("federation", function() {
         n => tracker3 = server.start({port: port3}, n),
         (_, n) => client3 = client.start({port: port3}, n),
         (_, n) => federation.connect(tracker2, {port: port3}, n),
-        (_, n) => messaging.sendAndReceive(
+        (_, n) => {
+          console.log("t1: %s\nt2: %s\nt3: %s", tracker1.id,tracker2.id,tracker3.id);
+          n();
+        },
+        n => messaging.sendAndReceive(
           client1, {id: client3.id},
           {action: "echo", data: "foo"}, n)
       )((err, {action, data, sender}) => {

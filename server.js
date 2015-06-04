@@ -50,6 +50,10 @@ function start(options, thenDo) {
     return this._connectionState;
   });
 
+  tracker.on("message", function(msg, connection) {
+    messaging.receive(tracker, connection, msg);
+  });
+
   server.on("connection", function(ws) {
     ws.on('message', function(msgString) {
       try {
@@ -58,7 +62,7 @@ function start(options, thenDo) {
         console.error("Tracker cannot read incoming message " + msgString);
         return;
       }
-      messaging.receive(tracker, ws, msg);
+      tracker.emit("message", msg, ws);
     });
   });
 

@@ -41,6 +41,9 @@ function createClient(options, thenDo) {
   });
 
   client.on("close", onClose);
+  client.on("message", function(msg, connection) {
+    messaging.receive(client, connection, msg);
+  });
 
   createWsConnection(client, options, thenDo);
 
@@ -61,7 +64,7 @@ function createWsConnection(client, options, thenDo) {
       console.error("Client cannot read incoming message %s", msgString);
       return;
     }
-    messaging.receive(client, ws, msg);
+    client.emit("message", msg, ws);
   }
 
   if (client.connectionState === ConnectionStates.CONNECTED)

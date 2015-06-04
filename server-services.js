@@ -36,6 +36,25 @@ module.exports = {
       });
   },
 
+  relay: function(receiver, sender, msg) {
+    var relayedMsg = lang.obj.merge(msg, {
+      proxies: (msg.proxies || []).concat([receiver.id])
+    });
+
+    var target = receiver.clientSessions[msg.target];
+    if (target) {
+      messaging.send(receiver, target, relayedMsg);
+    } else {
+      var trackers = lang.obj.merge(
+        receiver.ownedServerSessions,
+        receiver.acceptedServerSessions);
+      for (var id in trackers) {
+        if (relayedMsg.proxies.indexOf(id) !== -1) continue;
+        messaging.send(receiver, trackers[id], relayedMsg);
+      }
+    }
+  },
+
   // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
   // federation
 
