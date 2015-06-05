@@ -7,8 +7,12 @@ var logger = require("./logger");
 module.exports = {
 
   registerClient: function(self, sender, msg) {
-    self.clientSessions[sender.id] = sender;
-    sender.on("close", function() { delete self.clientSessions[sender.id]; });
+    var id = sender.id;
+    var con = sender.connection;
+    self.clientSessions[id] = sender;
+    if (con) {
+      con.on( "close", function() { delete self.clientSessions[id]; });
+    }
     messaging.answer(self, sender, msg, {
       success: true,
       tracker: {id: self.id}
@@ -21,8 +25,11 @@ module.exports = {
 
   registerServer: function(self, sender, msg) {
     var id = sender.id;
+    var con = sender.connection;
     self.acceptedServerSessions[id] = sender;
-    sender.on("close", function() { delete self.acceptedServerSessions[id]; });
+    if (con) {
+      con.on("close", function() { delete self.acceptedServerSessions[id]; });
+    }
     messaging.answer(self, sender, msg, {
       success: true,
       tracker: {id: self.id}

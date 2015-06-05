@@ -16,10 +16,57 @@ var SendStates = {
   IDLE: 2
 }
 
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+var receivedMessages = new Map();
+// var receivedMessageCacheTime = 60*1000;
+var receivedMessageCacheTime = 1*1000;
+
+function cleanReceivedMessageCache(receivedMessages) {
+  for (var keys = receivedMessages.keys(), k = keys.next();
+      !k.done;
+      k = keys.next()) {
+    cleanReceivedMessageCacheForReceiver(receivedMessages, k);
+  }
+}
+
+function cleanReceivedMessageCacheForReceiver(receivedMessages, receiver) {
+  var cache = receivedMessageCacheForReceiver(receivedMessages, receiver);
+  var cacheTime = Math.round(Date.now() / receivedMessageCacheTime);
+  for (var time in cache) {
+    if (cacheTime - time > 0) delete cache[time];
+  }
+  return cache;
+}
+
+function receivedMessageCacheForReceiver(receivedMessages, receiver) {
+  var cache  = receivedMessages.get(receiver);
+  if (cache) return cache;
+  cache = {};
+  receivedMessages.set(receiver, cache);
+  return cache;
+}
+
+function registerMessage(receiver, msg) {
+  // returns true if the message was already processed by receiver
+  var cache = cleanReceivedMessageCacheForReceiver(receivedMessages, receiver),
+      seen = lang.obj.values(cache).some(function(msgIds) {
+        return msgIds.indexOf(msg.messageId) > -1; }),
+      cacheTime = Math.round(Date.now() / receivedMessageCacheTime);
+  cache[cacheTime] = (cache[cacheTime] || []).concat([msg.messageId]);
+  return seen;
+}
+
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
 var sendQueues = new Map();
 
 function getSendQueue(sender) {
-  return sendQueues[sender] || (sendQueues[sender] = []);
+  var q = sendQueues.get(sender);
+  if (q) return q;
+  var q = [];
+  sendQueues.set(sender, q);
+  return q;
 }
 
 function scheduleSend(sender, receiver, msg, thenDo) {
@@ -97,6 +144,9 @@ function actualSend(sender, receiver, msg, thenDo) {
 
 module.exports = {
 
+  _receivedMessages: receivedMessages,
+  _sendQueues: sendQueues,
+
   ConnectionStates: ConnectionStates,
   SendStates: SendStates,
 
@@ -143,13 +193,12 @@ module.exports = {
   },
 
   receive: function(receiver, connection, msg) {
-    if (receiver.receivedMessages[msg.messageId]) {
+      if (registerMessage(receiver, msg)) {
       logger.log("message already received", receiver,
         "got message already received %s %s",
         msg.action, msg.messageId);
       return;
     }
-    receiver.receivedMessages[msg.messageId] = Date.now();
 
     var relay = msg.target && msg.target !== receiver.id,
         action = relay ? "relay" : msg.action;
@@ -177,10 +226,6 @@ module.exports = {
         return;
       }
     }
-
-      // FIXME
-    sender = lang.events.makeEmitter(sender);
-    connection.once("close", function() { sender.emit("close"); });
 
     if (handler) {
       try {

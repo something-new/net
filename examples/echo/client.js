@@ -1,5 +1,5 @@
-var client = require("../client");
-var messaging = require("../messaging");
+var client = require("../../client");
+var messaging = require("../../messaging");
 client.start({port: 10083}, function(err, con) {
   console.log("Client %s started and registered", con.id);
   var msg = messaging.sendAndReceive(

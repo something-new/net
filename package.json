@@ -11,11 +11,12 @@
     "ws": "^0.7.2"
   },
   "devDependencies": {
-    "lively2lively": "git://github.com/rksm/node-lively2lively#master",
-    "lively-fs-helper": "^0.1.0",
-    "lively-http-helper": "^0.1.0",
     "chai": "^2.3.0",
     "chai-subset": "^1.0.0",
+    "heapdump": "^0.3.5",
+    "lively-fs-helper": "^0.1.0",
+    "lively-http-helper": "^0.1.0",
+    "lively2lively": "git://github.com/rksm/node-lively2lively#master",
     "mocha": "^2.2.5",
     "mocha-phantomjs": "^3.5.3",
     "phantomjs": "^1.9.16"
