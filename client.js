@@ -56,28 +56,19 @@ function createWsConnection(client, options, thenDo) {
       onConnectionFailure = actions[0],
       onConnectionSuccess = actions[1];
 
-  function onMessage(msgString) {
-    try {
-      var msg = JSON.parse(msgString);
-    } catch (e) {
-      console.error("Client cannot read incoming message %s", msgString);
-      return;
-    }
-    client.emit("message", msg, ws);
-  }
-
   if (client.connectionState === ConnectionStates.CONNECTED)
     console.warn("creating a new websocket for client but an old one exist?");
 
   if (client.connectionState !== ConnectionStates.CONNECTING)
     client.connectionState = ConnectionStates.CONNECTING;
 
-  var ws = client.connection = new WebSocket(options.url);
+  var ws = client.connection = new WebSocket(options.url),
+      onMessageBound = onMessage.bind(null, client);
 
-  ws.on("message", onMessage);
+  ws.on("message", onMessageBound);
 
   ws.once("close", function() {
-    ws.removeListener("message", onMessage);
+    ws.removeListener("message", onMessageBound);
     client.emit("close", client);
   });
 
@@ -93,6 +84,16 @@ function createWsConnection(client, options, thenDo) {
     else sendRegisterMessage(client, options, onConnectionSuccess);
   });
 
+}
+
+function onMessage(client, msgString) {
+  try {
+    var msg = JSON.parse(msgString);
+  } catch (e) {
+    console.error("Client cannot read incoming message %s", msgString);
+    return;
+  }
+  client.emit("message", msg, client.connection);
 }
 
 function onClose(client) {

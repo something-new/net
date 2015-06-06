@@ -1,1 +1,5 @@
 node_modules/
+/1-before.heapsnapshot
+/2-connections-created.heapsnapshot
+/3-messages-send.heapsnapshot
+/4-connections-closed.heapsnapshot

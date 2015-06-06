@@ -33,10 +33,12 @@ function cleanReceivedMessageCache(receivedMessages) {
 function cleanReceivedMessageCacheForReceiver(receivedMessages, receiver) {
   var cache = receivedMessageCacheForReceiver(receivedMessages, receiver);
   var cacheTime = Math.round(Date.now() / receivedMessageCacheTime);
+  var count = 0;
   for (var time in cache) {
     if (cacheTime - time > 0) delete cache[time];
+    else count++;
   }
-  return cache;
+  if (count === 0) receivedMessages.delete(receiver);
 }
 
 function receivedMessageCacheForReceiver(receivedMessages, receiver) {
@@ -49,7 +51,8 @@ function receivedMessageCacheForReceiver(receivedMessages, receiver) {
 
 function registerMessage(receiver, msg) {
   // returns true if the message was already processed by receiver
-  var cache = cleanReceivedMessageCacheForReceiver(receivedMessages, receiver),
+  cleanReceivedMessageCacheForReceiver(receivedMessages, receiver);
+  var cache = receivedMessageCacheForReceiver(receivedMessages, receiver),
       seen = lang.obj.values(cache).some(function(msgIds) {
         return msgIds.indexOf(msg.messageId) > -1; }),
       cacheTime = Math.round(Date.now() / receivedMessageCacheTime);
@@ -69,6 +72,11 @@ function getSendQueue(sender) {
   return q;
 }
 
+function removeSendQueue(sender) {
+  var q = sendQueues.get(sender);
+  if (q) sendQueues.delete(sender);
+}
+
 function scheduleSend(sender, receiver, msg, thenDo) {
   logger.log("queueing send", sender, "%s", msg.action);
   var q = getSendQueue(sender),
@@ -79,7 +87,7 @@ function scheduleSend(sender, receiver, msg, thenDo) {
 
 function deliverSendQueue(sender) {
   var q = getSendQueue(sender);
-  if (!q.length) return;
+  if (!q.length) { removeSendQueue(sender); return; }
 
   if (sender.connectionState === ConnectionStates.CLOSED) return;
 
@@ -89,7 +97,9 @@ function deliverSendQueue(sender) {
     return;
   }
 
-  actualSend.apply(null, q.shift());
+  var args = q.shift();
+  if (!q.length) removeSendQueue(sender);
+  actualSend.apply(null, args);
 }
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -144,9 +154,6 @@ function actualSend(sender, receiver, msg, thenDo) {
 
 module.exports = {
 
-  _receivedMessages: receivedMessages,
-  _sendQueues: sendQueues,
-
   ConnectionStates: ConnectionStates,
   SendStates: SendStates,
 
@@ -193,7 +200,7 @@ module.exports = {
   },
 
   receive: function(receiver, connection, msg) {
-      if (registerMessage(receiver, msg)) {
+    if (registerMessage(receiver, msg)) {
       logger.log("message already received", receiver,
         "got message already received %s %s",
         msg.action, msg.messageId);
