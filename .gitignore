@@ -3,3 +3,7 @@ node_modules/
 /2-connections-created.heapsnapshot
 /3-messages-send.heapsnapshot
 /4-connections-closed.heapsnapshot
+/examples/mem-test/1-before.heapsnapshot
+/examples/mem-test/2-connections-created.heapsnapshot
+/examples/mem-test/3-messages-send.heapsnapshot
+/examples/mem-test/4-connections-closed.heapsnapshot
