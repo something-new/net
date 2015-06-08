@@ -13,15 +13,27 @@ var debug = false;
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
+var msgsReceived = 0;
+var msgsSend = 0;
+var messageTimings = [];
+
+function showMessageTimings() {
+  var chart = require('ascii-chart');
+  // var clear = require('clear');
+  console.log(chart(messageTimings, {width: 200, height: 35}));
+}
+
 var heapdump = require('heapdump');
 var dumpLocation = __dirname;
 
 function dump(name) {
+  // record new dumo
   global.gc();
   heapdump.writeSnapshot(path.join(dumpLocation, name + ".heapsnapshot"));
 }
 
 function checkMem() {
+  // compare recorded dumps
   var files = ['1-before.heapsnapshot',
                '2-connections-created.heapsnapshot',
                '3-messages-send.heapsnapshot',
@@ -71,6 +83,7 @@ function connectTrackers(thenDo) {
 
 lang.fun.composeAsync(
   function(n) { dump("1-before"); n(); },
+  // 1. create trackers + clients + connections
   createServers,
   createClients,
   connectTrackers
@@ -78,23 +91,37 @@ lang.fun.composeAsync(
 
   dump("2-connections-created");
 
-  lang.arr.mapAsyncSeries(lang.arr.range(0, 20),
+  // 2. Generate message traffic: In nBursts intervals send out a bunch of
+  // messages randomly between the clients
+  var nBursts = 20,
+      msgsPerBurst = 23;
+
+  lang.arr.mapAsyncSeries(lang.arr.range(0, nBursts),
     function(i, _, n) {
-      var t = Date.now(),
-          howManyMessages = lang.num.random(1,20);
+      // var howManyMessages = lang.num.random(1,msgsPerBurst);
+      var howManyMessages = msgsPerBurst;
 
       lang.arr.range(1,howManyMessages).forEach(function(j) {
-        var from = pickSomeClient(clients),
-            to = pickSomeClient(clients);
+        msgsSend++;
+        var t = Date.now(),
+            from = pickSomeClient(clients),
+            to = pickSomeClient(clients),
+            payload = lang.arr.range(0,2000)
+              .map(lang.num.random.bind(null, 65,90))
+              .map(function(n) { return String.fromCharCode(n); })
+              .join("")
+
         console.log("%s-%s: Sending echo", i,j);
         var msg = messaging.sendAndReceive(
           from, {id: to.id}, {
             action: "echo",
-            data: "Hello " + to.id
+            data: payload
           }, function(err, answer) {
             console.log("%s-%s: %s -> %s in %s ms",
               i,j, from.options.url, to.options.url,
               Date.now()-t);
+            if (!err && answer) msgsReceived++;
+            messageTimings.push(Date.now()-t);
           });
       });
 
@@ -103,7 +130,13 @@ lang.fun.composeAsync(
       console.log(err || "Done sending");
       dump("3-messages-send");
 
+      // 3. stop clients and trackers
       lang.fun.composeAsync(
+        function wait(n) {
+          lang.fun.waitFor(10*1000,
+            function() { return msgsSend === msgsReceived },
+            function(err) { n(); })
+        },
         function(n) {
           lang.arr.mapAsyncSeries(clients,
             function(c, _, n) { client.close(c, n); }, n);
@@ -112,14 +145,16 @@ lang.fun.composeAsync(
           lang.arr.mapAsyncSeries(trackers,
             function(t, _, n) { server.close(t, n); }, n);
         },
-        function(_, n) { setTimeout(n, 1000); }
+        function wait(_, n) { setTimeout(n, 300); }
       )(function(err) {
         console.log(err || "Done closing connections");  
 
-        Object.keys(require.cache).forEach(function(k) { delete require.cache[k]; });
         dump("4-connections-closed");
         checkMem();
-        console.log("Really done!");
+
+        showMessageTimings();
+        console.log("Median message delivery time: %s ms", lang.num.median(messageTimings));
+        console.log("Messages received / send: %s / %s", msgsReceived, msgsSend);
       });
     });
   });
