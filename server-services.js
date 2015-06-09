@@ -11,7 +11,7 @@ module.exports = {
     var con = sender.connection;
     self.clientSessions[id] = sender;
     if (con) {
-      con.on( "close", function() { delete self.clientSessions[id]; });
+      con.on("close", function() { delete self.clientSessions[id]; });
     }
     messaging.answer(self, sender, msg, {
       success: true,
@@ -44,9 +44,8 @@ module.exports = {
   },
 
   relay: function(receiver, sender, msg) {
-    var relayedMsg = lang.obj.merge(msg, {
-      proxies: (msg.proxies || []).concat([receiver.id])
-    });
+    var relayedMsg = util.assoc(msg,
+      "proxies", (msg.proxies || []).concat([receiver.id]));
 
     var target = receiver.clientSessions[msg.target];
     if (target) {
@@ -60,6 +59,21 @@ module.exports = {
         messaging.send(receiver, trackers[id], relayedMsg);
       }
     }
+  },
+
+  broadcast: function(receiver, sender, msg) {
+    var opts      = lang.obj.isObject(msg.broadcast) ? msg.broadcast : {},
+        ignored   = opts.ignored = [sender.id].concat(opts.ignored || []),
+        msgToSend = util.assoc(msg,
+          "broadcast", opts,
+          "proxies", (msg.proxies || []).concat([receiver.id])),
+        connections = require("./server").allConnections(receiver, ignored);
+    opts.ignored = opts.ignored
+      .concat([receiver.id])
+      .concat(lang.arr.pluck(connections, "id"));
+    connections.forEach(function(sess) {
+      messaging.send(receiver, sess, msgToSend);
+    });
   },
 
   // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-

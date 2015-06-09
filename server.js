@@ -127,10 +127,19 @@ function addService(tracker, name, handler) {
   return tracker;
 }
 
+function allConnections(tracker, exceptIds) {
+  exceptIds = exceptIds || [];
+  return lang.obj.values(tracker.clientSessions)
+    .concat(lang.obj.values(tracker.ownedServerSessions))
+    .concat(lang.obj.values(tracker.acceptedServerSessions))
+    .filter(function(sess) { return exceptIds.indexOf(sess.id) === -1; });
+}
+
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 module.exports = {
   start: start,
   close: close,
-  addService: addService
+  addService: addService,
+  allConnections: allConnections
 }

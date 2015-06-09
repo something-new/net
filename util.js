@@ -6,15 +6,20 @@ function selectKeys(obj, keys) {
   return result;
 }
 
-function dissoc(obj, key) {
-  var result = lang.obj.clone(obj);
-  delete result[key];
+function dissoc(obj, key/*, key, ...*/) {
+  var args = lang.arr.from(arguments),
+      obj = args.shift(),
+      result = lang.obj.clone(obj);
+  args.forEach(function(k) { delete result[k]; });
   return result;
 }
 
-function assoc(obj, key, value) {
-  var result = lang.obj.clone(obj);
-  result[key] = value;
+function assoc(obj, key, value/*, key, value...*/) {
+  var args = lang.arr.from(arguments),
+      obj = args.shift(),
+      result = lang.obj.clone(obj);
+  lang.arr.toTuples(args, 2).forEach(function(kv) {
+    result[kv[0]] = kv[1]; });
   return result;
 }
 

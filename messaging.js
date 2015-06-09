@@ -158,11 +158,12 @@ module.exports = {
   SendStates: SendStates,
 
   answer: function(self, sender, origMsg, data, thenDo) {
-    return module.exports.send(self, sender, {
-      action: origMsg.action + "Result",
-      inResponseTo: origMsg.messageId,
-      data: data
-    }, thenDo);
+    return origMsg.noResponse ? null :
+      module.exports.send(self, sender, {
+        action: origMsg.action + "Result",
+        inResponseTo: origMsg.messageId,
+        data: data
+      }, thenDo);
   },
 
   sendTo: function(self, receiver, action, data, thenDo) {
@@ -174,14 +175,18 @@ module.exports = {
     msg = ensureMessageProperties(sender, receiver, msg);
     thenDo = thenDo && lang.fun.once(thenDo);
 
+    if (msg.noResponse) {
+      return module.exports.send(sender, receiver, msg, thenDo);
+    }
+
     var onReceive = function(answer) { thenDo && thenDo(null, answer); }
     var onMessageSend = function(err) {
       if (!err) return;
       thenDo && thenDo(err);
       sender.removeListener("answer-"+msg.messageId, onReceive);
     }
-    sender.once("answer-" + msg.messageId, onReceive);
 
+    sender.once("answer-" + msg.messageId, onReceive);
     return module.exports.send(sender, receiver, msg, onMessageSend);
   },
 
@@ -202,12 +207,12 @@ module.exports = {
   receive: function(receiver, connection, msg) {
     if (registerMessage(receiver, msg)) {
       logger.log("message already received", receiver,
-        "got message already received %s %s",
-        msg.action, msg.messageId);
+        "got message already received %s %s\n  from %s\n  proxies",
+        msg.action, msg.messageId, msg.sender, msg.proxies);
       return;
     }
 
-    var relay = msg.target && msg.target !== receiver.id,
+    var relay = msg.target && msg.target !== receiver.id && !msg.broadcast,
         action = relay ? "relay" : msg.action;
 
     logger.log("receive", receiver, "got %s",
@@ -245,6 +250,9 @@ module.exports = {
         receiver, sender, msg,
         {error: "message not understood"});
     }
-  }
 
+    if (msg.broadcast && services.broadcast) {
+      services.broadcast(receiver, sender, msg);
+    }
+  }
 }
