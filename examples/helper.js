@@ -14,6 +14,10 @@ var msgsReceived = 0;
 var msgsSend = 0;
 var messageTimings = [];
 
+function log(/*args*/) {
+  return console.log.apply(console, arguments);
+}
+
 function createServers(trackerPorts, thenDo) {
   lang.arr.mapAsyncSeries(trackerPorts,
     function(port, _, n) { server.start({debug: debug, port: port}, n); },
@@ -36,21 +40,27 @@ function connectTrackers(fromTos, thenDo) {
 }
 
 function sendEcho(logString, payload, from, to, thenDo) {
-  console.log("%s: Sending echo", logString);
+  log("%s: Sending echo", logString);
   msgsSend++;
-  var t = Date.now();
+  var t = Date.now(), err;
   var msg = messaging.sendAndReceive(
-    from, {id: to.id}, {
-      action: "echo",
-      data: payload
-    }, function(err, answer) {
-      console.log("%s: %s -> %s in %s ms",
+    from, {id: to.id}, {action: "echo", data: payload},
+    function(err, answer) {
+      if (!err && answer) msgsReceived++;
+      log("%s: %s -> %s in %s ms",
         logString, from.options.url, to.options.url,
         Date.now()-t);
-      if (!err && answer) msgsReceived++;
       messageTimings.push(Date.now()-t);
+      thenDo();
     });
-  thenDo(null);
+  
+  // from.on("answer-" + msg.messageId, function(answer) {
+  //   if (!err && answer) msgsReceived++;
+  //   log("%s: %s -> %s in %s ms",
+  //     logString, from.options.url, to.options.url,
+  //     Date.now()-t);
+  //   messageTimings.push(Date.now()-t);
+  // });
 }
 
 function closeClientsAndTrackers(clients, trackers, thenDo) {
@@ -63,20 +73,20 @@ function closeClientsAndTrackers(clients, trackers, thenDo) {
     function(n) {
       lang.arr.mapAsyncSeries(clients,
         function(c, _, n) {
-          console.log("closing client %s", c.options.url);
+          log("closing client %s", c.options.url);
           client.close(c, n);
         }, n);
     },
     function(_, n) {
       lang.arr.mapAsyncSeries(trackers,
         function(t, _, n) {
-          console.log("closing tracker %s", t.options.port);
+          log("closing tracker %s", t.options.port);
           server.close(t, n);
         }, n);
     },
     function wait(_, n) { setTimeout(n, 300); }
   )(function(err) {
-    console.log(err || "Done closing connections");  
+    log(err || "Done closing connections");  
     thenDo(err, msgsReceived, msgsSend, messageTimings);
   });
 }

@@ -65,22 +65,24 @@ lang.fun.composeAsync(
       msgsPerBurst = 23;
 
   lang.arr.mapAsyncSeries(lang.arr.range(0, nBursts),
-    function(i, _, n) {
+    function(i, _, nextMapAsync) {
       // var howManyMessages = lang.num.random(1,msgsPerBurst);
       var howManyMessages = msgsPerBurst;
 
-      lang.arr.range(1,howManyMessages).forEach(function(j) {
-        var logString = i + "-" + j,
-            from = pickSomeClient(clients),
-            to = pickSomeClient(clients),
-            payload = lang.arr.range(0,2000)
-              .map(lang.num.random.bind(null, 65,90))
-              .map(function(n) { return String.fromCharCode(n); })
-              .join("");
-        helper.sendEcho(logString, payload, from, to, n);
-      });
+      lang.fun.waitForAll(
+        lang.arr.range(1, howManyMessages).map(function(j) {
+          var logString = i + "-" + j,
+              from = pickSomeClient(clients),
+              to = pickSomeClient(clients),
+              payload = lang.arr.range(0,2000)
+                .map(lang.num.random.bind(null, 65,90))
+                .map(function(c) { return String.fromCharCode(c); })
+                .join("");
+          return function(nextWaitForAll) {
+            helper.sendEcho(logString, payload, from, to, function() { nextWaitForAll(); });
+          }
+        }), function(err) { nextMapAsync(); });
 
-      setTimeout(n, lang.num.random(0,200));
     }, function(err) {
       console.log(err || "Done sending");
       dump("3-messages-send");
