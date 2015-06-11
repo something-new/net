@@ -1,8 +1,13 @@
-var lang = require("lively.lang");
-var util = require("./util");
+var lang      = require("lively.lang");
+var util      = require("./util");
 var messaging = require("./messaging");
-var sessions = require("./sessions");
-var logger = require("./logger");
+var sessions  = require("./sessions");
+var logger    = require("./logger");
+
+function addProxy(proxy, msg) {
+  return util.assoc(msg, "proxies",
+    (msg.proxies || []).concat({time: Date.now(), id: proxy.id}));
+}
 
 module.exports = {
 
@@ -44,33 +49,31 @@ module.exports = {
   },
 
   relay: function(receiver, sender, msg) {
-    var relayedMsg = util.assoc(msg,
-      "proxies", (msg.proxies || []).concat([receiver.id]));
+    var relayedMsg = addProxy(receiver, msg),
+        target = receiver.clientSessions[msg.target];
 
-    var target = receiver.clientSessions[msg.target];
     if (target) {
       messaging.send(receiver, target, relayedMsg);
     } else {
       var trackers = lang.obj.merge(
-        receiver.ownedServerSessions,
-        receiver.acceptedServerSessions);
+            receiver.ownedServerSessions,
+            receiver.acceptedServerSessions),
+          proxyIds = lang.arr.pluck(relayedMsg.proxies, "id");
       for (var id in trackers) {
-        if (relayedMsg.proxies.indexOf(id) !== -1) continue;
+        if (proxyIds.indexOf(id) !== -1) continue;
         messaging.send(receiver, trackers[id], relayedMsg);
       }
     }
   },
 
   broadcast: function(receiver, sender, msg) {
-    var opts      = lang.obj.isObject(msg.broadcast) ? msg.broadcast : {},
-        ignored   = opts.ignored = [sender.id].concat(opts.ignored || []),
-        msgToSend = util.assoc(msg,
-          "broadcast", opts,
-          "proxies", (msg.proxies || []).concat([receiver.id])),
+    var opts        = lang.obj.isObject(msg.broadcast) ? msg.broadcast : {},
+        ignored     = opts.ignored = [sender.id].concat(opts.ignored || []),
+        msgToSend   = addProxy(receiver, util.assoc(msg, "broadcast", opts)),
         connections = require("./server").allConnections(receiver, ignored);
-    opts.ignored = opts.ignored
+    opts.ignored = util.uniq(opts.ignored
       .concat([receiver.id])
-      .concat(lang.arr.pluck(connections, "id"));
+      .concat(lang.arr.pluck(connections, "id")));
     connections.forEach(function(sess) {
       messaging.send(receiver, sess, msgToSend);
     });
