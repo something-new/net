@@ -92,6 +92,7 @@ function start(options, thenDo) {
 }
 
 function close(tracker, thenDo) {
+  tracker.connectionState = messaging.ConnectionStates.CLOSED;
 
   lang.fun.composeAsync(
     function(n) {
@@ -123,10 +124,8 @@ function close(tracker, thenDo) {
         return;
       }
       tracker.server.close();
-      setTimeout(function() {
-        tracker.emit("close");
-        n();
-      }, 100);
+      messaging.clearCacheFor(tracker);
+      setTimeout(function() { tracker.emit("close"); n(); }, 100);
     }
   )(thenDo);
 }

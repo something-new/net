@@ -158,6 +158,13 @@ module.exports = {
   ConnectionStates: ConnectionStates,
   SendStates: SendStates,
 
+  _cleanReceivedMessageCache: function() { cleanReceivedMessageCache(receivedMessages); },
+
+  clearCacheFor: function(sender) {
+    cleanReceivedMessageCacheForReceiver(receivedMessages, sender);
+    removeSendQueue(sender);
+  },
+
   logStateOf: function(sender) {
     return lang.string.format("recently received messages: %s\nmessage queue: \n  %s",
       lang.obj.values(receivedMessageCacheForReceiver(receivedMessages, sender)).join(", "),
