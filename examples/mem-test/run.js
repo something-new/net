@@ -7,8 +7,8 @@ var trackerPorts = lang.arr.range(10083, 10087);
 var clientsPerTracker = 3;
 var clients, trackers;
 
-
-function pickSomeClient(clients) {
+function pickSomeClient(clients, ignore) {
+  if (ignore) clients = lang.arr.withoutAll(clients, ignore);
   return clients[lang.num.random(0, clients.length-1)];
 }
 
@@ -73,7 +73,7 @@ lang.fun.composeAsync(
         lang.arr.range(1, howManyMessages).map(function(j) {
           var logString = i + "-" + j,
               from = pickSomeClient(clients),
-              to = pickSomeClient(clients),
+              to = pickSomeClient(clients, [from]),
               payload = lang.arr.range(0,2000)
                 .map(lang.num.random.bind(null, 65,90))
                 .map(function(c) { return String.fromCharCode(c); })
@@ -89,12 +89,17 @@ lang.fun.composeAsync(
 
       // 3. stop clients and trackers
       helper.closeClientsAndTrackers(clients, trackers, function(err, msgsReceived, msgsSend, messageTimings) {
+        require("../../messaging")._cleanReceivedMessageCache();
         dump("4-connections-closed");
         checkMem();
 
         helper.showMessageTimings(messageTimings);
         console.log("Median message delivery time: %s ms", lang.num.median(messageTimings));
         console.log("Messages received / send: %s / %s", msgsReceived, msgsSend);
+
+  // trackers.forEach(require("../../logger").logStateOf);
+  // clients.forEach(require("../../logger").logStateOf);
+
       });
 
     });

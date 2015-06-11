@@ -54,7 +54,9 @@ lang.fun.composeAsync(
                 .map(function(c) { return String.fromCharCode(c); })
                 .join("");
           return function(nextWaitForAll) {
-            helper.sendEcho(logString, payload, from, to, function() { nextWaitForAll(); });
+            helper.sendEcho(
+              logString, payload, from, to,
+              function() { nextWaitForAll(); });
           }
         }), function(err) { nextMapAsync(); });
 
@@ -63,11 +65,12 @@ lang.fun.composeAsync(
       // dump("3-messages-send");
 
       // 3. stop clients and trackers
-      helper.closeClientsAndTrackers(clients, trackers, function(err, msgsReceived, msgsSend, messageTimings) {
-        helper.showMessageTimings(messageTimings);
-        console.log("Median message delivery time: %s ms", lang.num.median(messageTimings));
-        console.log("Messages received / send: %s / %s", msgsReceived, msgsSend);
-      });
+      helper.closeClientsAndTrackers(clients, trackers,
+        function(err, msgsReceived, msgsSend, messageTimings) {
+          helper.showMessageTimings(messageTimings);
+          console.log("Median message delivery time: %s ms", lang.num.median(messageTimings));
+          console.log("Messages received / send: %s / %s", msgsReceived, msgsSend);
+        });
 
     });
   });

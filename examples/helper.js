@@ -35,7 +35,9 @@ function createClients(trackerPorts, clientsPerTracker, thenDo) {
 
 function connectTrackers(fromTos, thenDo) {
   lang.arr.mapAsyncSeries(fromTos, function(fromTo, _, n) {
-    federation.connect(fromTo[0], fromTo[1], n);
+    var to = fromTo[1];
+    if (to.options) to = to.options;
+    federation.connect(fromTo[0], to, n);
   }, function(err) { thenDo(err); });
 }
 
@@ -77,14 +79,16 @@ function closeClientsAndTrackers(clients, trackers, thenDo) {
           client.close(c, n);
         }, n);
     },
-    function(_, n) {
+    function(_, n) { clients.length = 0; n(); },
+    function(n) {
       lang.arr.mapAsyncSeries(trackers,
         function(t, _, n) {
           log("closing tracker %s", t.options.port);
           server.close(t, n);
         }, n);
     },
-    function wait(_, n) { setTimeout(n, 300); }
+    function(_, n) { trackers.length = 0; n(); },
+    function wait(n) { setTimeout(n, 300); }
   )(function(err) {
     log(err || "Done closing connections");  
     thenDo(err, msgsReceived, msgsSend, messageTimings);
