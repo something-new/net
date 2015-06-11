@@ -108,6 +108,7 @@ function ensureMessageProperties(sender, receiver, msg) {
   if (!msg.sender) msg.sender = sender.id;
   if (!msg.messageId) msg.messageId = "msg-" + uuid.v4();
   if (!msg.target && receiver) msg.target = receiver.id;
+  if (!msg.sentTime) msg.sentTime = Date.now();
   return msg;
 }
 
@@ -156,6 +157,14 @@ module.exports = {
 
   ConnectionStates: ConnectionStates,
   SendStates: SendStates,
+
+  logStateOf: function(sender) {
+    return lang.string.format("recently received messages: %s\nmessage queue: \n  %s",
+      lang.obj.values(receivedMessageCacheForReceiver(receivedMessages, sender)).join(", "),
+      getSendQueue(sender)
+        .map(function(args) { return args[2].action + "(" + args[2].id + ")" })
+        .join("\n  "))
+  },
 
   answer: function(self, sender, origMsg, data, thenDo) {
     return origMsg.noResponse ? null :

@@ -14,6 +14,7 @@ var SendStates = messaging.SendStates;
 function createClient(options, thenDo) {
   var client = lang.events.makeEmitter({
     id: options.id,
+    trackerId: null,
     services: lang.obj.clone(defaultServices),
     connection: null,
 
@@ -25,7 +26,16 @@ function createClient(options, thenDo) {
 
     sendString: function(receiver, msgString, thenDo) {
       return client.connection.send(msgString, thenDo);;
+    },
+
+    inspect: function() {
+      return lang.string.format(
+        "Inspecting client\n  state: %s\n connected to: %s\n  send state: %s",
+        util.keyForValue(messaging.ConnectionStates, this._connectionState),
+        this.trackerId,
+        messaging.logStateOf(this).split("\n").join("\n  "));
     }
+
   });
 
   client._connectionState = client.connectionState;
@@ -164,6 +174,8 @@ function close(client, thenDo) {
   }
 
   client.connectionState = ConnectionStates.CLOSED;
+
+  messaging.clearCacheFor(client);
 
   var ws = client.connection;
   ws && ws.close();

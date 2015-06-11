@@ -3,6 +3,7 @@ var lang = require("lively.lang");
 module.exports = {
 
   log: function(topic, subject /*args ...*/) {
+
     var opts = subject && subject.options,
         printIt = opts && !!opts.debug,
         saveIt = opts && !!opts.retainLog;
@@ -42,6 +43,10 @@ module.exports = {
 
   purgeLog: function(time, subject) {
     return subject.log = module.exports.logSince(time, subject);
-  }
+  },
 
+  logStateOf: function(subject) {
+    var string = subject.inspect ? subject.inspect() : "cannot log " + subject;
+    module.exports.log("inspect", subject, string);
+  },
 }

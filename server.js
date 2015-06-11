@@ -34,10 +34,20 @@ function start(options, thenDo) {
     options: options,
 
     sendString: function(receiver, msgString, thenDo) {
-      if (!receiver || !receiver.connection) return thenDo && thenDo(new Error("No websocket"));
-      receiver.connection.send(msgString, function(err) {
-        if (err && thenDo) thenDo(err);
-      });
+      if (!receiver || !receiver.connection)
+        return thenDo && thenDo(new Error("No websocket"));
+      receiver.connection.send(msgString,
+        function(err) { if (thenDo) thenDo(err); });
+    },
+
+    inspect: function() {
+      return lang.string.format(
+        "Inspecting tracker\n  state: %s\n  connected clients: %s\n  owned server sessions: %s\n  acceptedServerSessions: %s\n  send state: %s",
+        util.keyForValue(messaging.ConnectionStates, this._connectionState),
+        lang.obj.keys(this.clientSessions).join(", "),
+        lang.obj.keys(this.ownedServerSessions).join(", "),
+        lang.obj.keys(this.acceptedServerSessions).join(", "),
+        messaging.logStateOf(this).split("\n").join("\n  "));
     }
   });
 
