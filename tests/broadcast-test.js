@@ -122,13 +122,17 @@ console.log("D -- %s", D.id);
             if (err) return done(err);
 
             expect(receivedMessages.get(client1)).eq(undefined);
+
             expect(receivedMessages.get(A)).length(1);
             expect(receivedMessages.get(A)).containSubset([{action: "echo"}]);
+
             expect(receivedMessages.get(B)).length(1);
             expect(receivedMessages.get(B)).containSubset([{action: "echo"}]);
-console.log(receivedMessages.get(C));
+
+console.log(require("util").inspect(receivedMessages.get(C), {depth: 3}));
             expect(receivedMessages.get(C)).length(1);
             expect(receivedMessages.get(C)).containSubset([{action: "echo"}]);
+
             // expect(receivedMessages.get(D)).length(1);
             // expect(receivedMessages.get(D)).containSubset([{action: "echo"}]);
             // expect(receivedMessages.get(clientOfD)).length(1);
