@@ -14,12 +14,32 @@ var port = 10082;
 
 var receivedMessages;
 function recordMessage(receiver, msg) {
-  console.log("...... recording %s for %s", msg.action, receiver.id);
   var recorded = receivedMessages.get(receiver) || [];
   recorded.push(msg);
   receivedMessages.set(receiver, recorded);
   return msg;
 }
+
+chai.use(function (_chai, utils) {
+  utils.addMethod(chai.Assertion.prototype, 'received', function(messageSubsets) {
+    var receiver = utils.flag(this, 'object');
+    if (!messageSubsets) {
+      new chai.Assertion(receivedMessages.get(receiver)).to.equal(messageSubsets);
+    } else {
+      this.assert(receivedMessages.get(receiver), "no received messages for " + receiver.id);
+      new chai.Assertion(receivedMessages.get(receiver))
+        .lengthOf(
+          messageSubsets.length,
+          "message count does  not match");
+      new chai.Assertion(receivedMessages.get(receiver))
+        .containSubset(
+          messageSubsets,
+          "expected message props donot match");
+    }
+  });
+});
+
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 describe('broadcast', function() {
 
@@ -56,19 +76,16 @@ describe('broadcast', function() {
     lang.fun.composeAsync(
       n => {
         var msg = messaging.send(
-          client1, {id: client1.trackerId},
+          client1, {id: client.getTrackerId(client1)},
           {broadcast: true, noResponse: true, action: "echo", data: "foo"},
           (err, msg) => err && done(err));
         setTimeout(n, 100);
       }
     )((err) => {
       if (err) return done(err);
-
-      expect(receivedMessages.get(client1)).eq(undefined);
-      expect(receivedMessages.get(client2)).length(1);
-      expect(receivedMessages.get(client2)).containSubset([{action: "echo"}]);
-      expect(receivedMessages.get(tracker)).length(1);
-      expect(receivedMessages.get(tracker)).containSubset([{action: "echo"}]);
+      expect(client1).to.have.received(undefined);
+      expect(client2).to.have.received([{action: "echo"}]);
+      expect(tracker).to.have.received([{action: "echo"}]);
       done();
     });
   });
@@ -104,39 +121,24 @@ describe('broadcast', function() {
             D.on("message", m => recordMessage(D, m));
             clients = clients.concat([clientOfD]);
             trackers = trackers.concat([B, C, D]);
-console.log("A -- %s", A.id);
-console.log("B -- %s", B.id);
-console.log("C -- %s", C.id);
-console.log("D -- %s", D.id);
             n();
           },
           
           // 2. broadcast
           n => {
             var msg = messaging.send(
-              client1, {id: client1.trackerId},
+              client1, {id: client.getTrackerId(client1)},
               {broadcast: true, noResponse: true, action: "echo", data: "foo"},
               (err, msg) => err && done(err));
             setTimeout(n, 100);
           })(err => {
             if (err) return done(err);
-
-            expect(receivedMessages.get(client1)).eq(undefined);
-
-            expect(receivedMessages.get(A)).length(1);
-            expect(receivedMessages.get(A)).containSubset([{action: "echo"}]);
-
-            expect(receivedMessages.get(B)).length(1);
-            expect(receivedMessages.get(B)).containSubset([{action: "echo"}]);
-
-console.log(require("util").inspect(receivedMessages.get(C), {depth: 3}));
-            expect(receivedMessages.get(C)).length(1);
-            expect(receivedMessages.get(C)).containSubset([{action: "echo"}]);
-
-            // expect(receivedMessages.get(D)).length(1);
-            // expect(receivedMessages.get(D)).containSubset([{action: "echo"}]);
-            // expect(receivedMessages.get(clientOfD)).length(1);
-            // expect(receivedMessages.get(clientOfD)).containSubset([{action: "echo"}]);
+            expect(client1).to.have.received(undefined);
+            expect(A).to.have.received([{action: "echo"}]);
+            expect(B).to.have.received([{action: "echo"}]);
+            expect(C).to.have.received([{action: "echo"}]);
+            expect(D).to.have.received([{action: "echo"}]);
+            expect(clientOfD).to.have.received([{action: "echo"}]);
             done();
           });
       });

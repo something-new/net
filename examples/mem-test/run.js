@@ -88,19 +88,19 @@ lang.fun.composeAsync(
       dump("3-messages-send");
 
       // 3. stop clients and trackers
-      helper.closeClientsAndTrackers(clients, trackers, function(err, msgsReceived, msgsSend, messageTimings) {
-        require("../../messaging")._cleanReceivedMessageCache();
-        dump("4-connections-closed");
-        checkMem();
-
-        helper.showMessageTimings(messageTimings);
-        console.log("Median message delivery time: %s ms", lang.num.median(messageTimings));
-        console.log("Messages received / send: %s / %s", msgsReceived, msgsSend);
-
-  // trackers.forEach(require("../../logger").logStateOf);
-  // clients.forEach(require("../../logger").logStateOf);
-
-      });
+      helper.closeClientsAndTrackers(clients, trackers,
+        function(err, msgsReceived, msgsSend, messageTimings) {
+          dump("4-connections-closed");
+          checkMem();
+  
+          helper.showMessageTimings(messageTimings);
+          console.log("Median message delivery time: %s ms", lang.num.median(messageTimings));
+          console.log("Messages received / send: %s / %s", msgsReceived, msgsSend);
+  
+    // trackers.forEach(require("../../logger").logStateOf);
+    // clients.forEach(require("../../logger").logStateOf);
+  
+        });
 
     });
 });

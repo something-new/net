@@ -1,11 +1,13 @@
 var lang = require("lively.lang");
 var messaging = require("./messaging");
 var util = require("./util");
+var server = require("./server");
+var client = require("./client");
 
 function trackerSessionsLocal(tracker, thenDo) {
   var ownSession = util.merge(util.selectKeys(tracker, ["id"]), {type: "tracker"}),
       localSessions = [ownSession]
-        .concat(lang.obj.values(tracker.clientSessions)
+        .concat(lang.obj.values(server.getClientSessions(tracker))
           .map(function(ea) {
             return util.merge(util.selectKeys(ea, ["id"]), {type: "client"});
           }));
@@ -17,8 +19,8 @@ function trackerSessionsRemote(tracker, ignored, thenDo) {
   var otherTrackers = [];
 
   var serverSessions = lang.obj.merge(
-    tracker.ownedServerSessions,
-    tracker.acceptedServerSessions);
+    server.getOwnedServerSessions(tracker),
+    server.getAcceptedServerSessions(tracker));
 
   for (var id in serverSessions) {
     var otherServer = serverSessions[id];
@@ -32,8 +34,9 @@ function trackerSessionsRemote(tracker, ignored, thenDo) {
   lang.arr.mapAsyncSeries(otherTrackers,
     function(trackerCon, _, n) {
       messaging.sendAndReceive(tracker,
-        {connection: trackerCon.connection, id: trackerCon.trackerId},
-        {action: "knownSessions",data: {ignoredTrackers: ignored}},
+        {connection: client.getConnection(trackerCon),
+         id: client.getTrackerId(trackerCon)},
+        {action: "knownSessions", data: {ignoredTrackers: ignored}},
         function(err, answer) { n(err, answer ? answer.data : []); });
     },
     function(err, nestedSessions) {
@@ -67,9 +70,9 @@ module.exports = {
       trackerSessions(participant, ignored, thenDo);      
     } else {
       messaging.sendAndReceive(
-        participant, {id: participant.trackerId}, {
+        participant, {id: client.getTrackerId(participant)}, {
           action: "knownSessions",
-          data: {ignoredTrackers: ignored.concat([participant.trackerId])}
+          data: {ignoredTrackers: ignored.concat([client.getTrackerId(participant)])}
         },
         function(err, answer) {
           err && console.log(err.stack);

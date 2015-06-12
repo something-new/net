@@ -11,29 +11,39 @@ var ConnectionStates = {
   CONNECTED: 3
 }
 
+var CLOSED = ConnectionStates.CLOSED;
+var CONNECTING = ConnectionStates.CONNECTING;
+var CONNECTED = ConnectionStates.CONNECTED;
+
 var SendStates = {
   SENDING: 1,
   IDLE: 2
 }
 
+var SENDING = SendStates.SENDING;
+var IDLE = SendStates.IDLE;
+
+function stateName(state) {
+  return util.keyForValue(ConnectionStates, state);
+}
+
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
+// maps: receiver (server | client) -> {timestamps: [message ids]}
 var receivedMessages = new Map();
 // var receivedMessageCacheTime = 60*1000;
 var receivedMessageCacheTime = 1*1000;
 
 function cleanReceivedMessageCache(receivedMessages) {
-  for (var keys = receivedMessages.keys(), k = keys.next();
-      !k.done;
-      k = keys.next()) {
-    cleanReceivedMessageCacheForReceiver(receivedMessages, k);
-  }
+  receivedMessages.forEach(function(k, v) {
+    cleanReceivedMessageCacheForReceiver(receivedMessages, k);    
+  });
 }
 
 function cleanReceivedMessageCacheForReceiver(receivedMessages, receiver) {
-  var cache = receivedMessageCacheForReceiver(receivedMessages, receiver);
-  var cacheTime = Math.round(Date.now() / receivedMessageCacheTime);
-  var count = 0;
+  var cache = receivedMessageCacheForReceiver(receivedMessages, receiver),
+      cacheTime = Math.round(Date.now() / receivedMessageCacheTime),
+      count = 0;
   for (var time in cache) {
     if (cacheTime - time > 0) delete cache[time];
     else count++;
@@ -43,9 +53,7 @@ function cleanReceivedMessageCacheForReceiver(receivedMessages, receiver) {
 
 function receivedMessageCacheForReceiver(receivedMessages, receiver) {
   var cache  = receivedMessages.get(receiver);
-  if (cache) return cache;
-  cache = {};
-  receivedMessages.set(receiver, cache);
+  if (!cache) receivedMessages.set(receiver, cache = {});
   return cache;
 }
 
@@ -89,10 +97,10 @@ function deliverSendQueue(sender) {
   var q = getSendQueue(sender);
   if (!q.length) { removeSendQueue(sender); return; }
 
-  if (sender.connectionState === ConnectionStates.CLOSED) return;
+  if (sender.connectionState === CLOSED) return;
 
-  if (sender.connectionState === ConnectionStates.CONNECTING
-   || sender.sendState === SendStates.SENDING) {
+  if (sender.connectionState === CONNECTING
+   || sender.sendState === SENDING) {
     setTimeout(deliverSendQueue.bind(null, sender), 100);
     return;
   }
@@ -112,10 +120,8 @@ function ensureMessageProperties(sender, receiver, msg) {
   return msg;
 }
 
-// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
 function actualSend(sender, receiver, msg, thenDo) {
-  if (sender.connectionState === ConnectionStates.CLOSED) {
+  if (sender.getState().connectionState === CLOSED) {
     var errString = "cannot send, " + sender.id + " not connected";
     console.error(errString);
     if (thenDo) thenDo(new Error(errString));
@@ -124,7 +130,7 @@ function actualSend(sender, receiver, msg, thenDo) {
 
   logger.log("send", sender, "%s (%s) -> %s",
     msg.action,
-    util.keyForValue(ConnectionStates, sender.connectionState),
+    stateName(sender.getState().connectionState),
     msg.target);
 
   try {
@@ -137,18 +143,18 @@ function actualSend(sender, receiver, msg, thenDo) {
 
   var actions = lang.fun.either(
     function() {
-      // client.sendState = client.sendQueue.length ? SendStates.SENDING : SendStates.IDLE;
-      // sender.sendState = SendStates.IDLE;
+      // client.sendState = client.sendQueue.length ? SENDING : IDLE;
+      // sender.sendState = IDLE;
       thenDo && thenDo(new Error('timeout!'));
     },
     function(err) {
-      // sender.sendState = SendStates.IDLE;
+      // sender.sendState = IDLE;
       thenDo && thenDo(err);
     });
 
   setTimeout(actions[0], 2000);
 
-  // sender.sendState = SendStates.SENDING;
+  // sender.sendState = SENDING;
   sender.sendString(receiver, msgString, actions[1]);
   return msg;
 }
@@ -158,7 +164,11 @@ module.exports = {
   ConnectionStates: ConnectionStates,
   SendStates: SendStates,
 
-  _cleanReceivedMessageCache: function() { cleanReceivedMessageCache(receivedMessages); },
+  stateName: stateName,
+
+  _cleanReceivedMessageCache: function() {
+    cleanReceivedMessageCache(receivedMessages);
+  },
 
   clearCacheFor: function(sender) {
     cleanReceivedMessageCacheForReceiver(receivedMessages, sender);
@@ -209,8 +219,8 @@ module.exports = {
   send: function(sender, receiver, msg, thenDo) {
     msg = ensureMessageProperties(sender, receiver, msg);
 
-    if (sender.connectionState === ConnectionStates.CONNECTING
-     || sender.sendState === SendStates.SENDING
+    if (sender.getState().connectionState === CONNECTING
+     || sender.getState().sendState === SENDING
      || !!getSendQueue(sender).length) {
       scheduleSend(sender, receiver, msg, thenDo);
     } else {
@@ -223,7 +233,7 @@ module.exports = {
   receive: function(receiver, connection, msg) {
     if (registerMessage(receiver, msg)) {
       logger.log("message already received", receiver,
-        "got message already received %s %s\n  from %s\n  proxies",
+        "%s %s\n  from %s\n  proxies",
         msg.action, msg.messageId, msg.sender, msg.proxies);
       return;
     }
@@ -235,12 +245,13 @@ module.exports = {
       msg.inResponseTo ?
         "answer for " + action.replace(/Result$/, "") : action);
 
+    receiver.emit("message", msg);
     if (!relay && msg.inResponseTo) {
       receiver.emit("answer-" + msg.inResponseTo, msg);
       return;
     }
 
-    var services = receiver.services || {},
+    var services = receiver.getState().services || {},
         sender = {id: msg.sender, connection: connection},
         handler = services[action];
 
@@ -259,7 +270,7 @@ module.exports = {
       try {
         handler(receiver, sender, msg);
       } catch (e) {
-        console.error("Error in service handler %s:", msg.action, e);
+        console.error("Error in service handler %s:", msg.action, e.stack || e);
       }
     } else {
       module.exports.answer(

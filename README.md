@@ -42,7 +42,7 @@ var client = require("./client");
 var endpoint = client.start({port: 10083}, function() {
   console.log("Client %s started and registered", endpoint.id);
   var msg = client.send(endpoint, {
-    target: endpoint.trackerId,
+    target: client.getTrackerId(endpoint),
     action: "echo",
     data: "Hello server!"
   });

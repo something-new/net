@@ -3,6 +3,7 @@ var util      = require("./util");
 var messaging = require("./messaging");
 var sessions  = require("./sessions");
 var logger    = require("./logger");
+var server    = require("./server");
 
 function addProxy(proxy, msg) {
   return util.assoc(msg, "proxies",
@@ -12,11 +13,11 @@ function addProxy(proxy, msg) {
 module.exports = {
 
   registerClient: function(self, sender, msg) {
-    var id = sender.id;
-    var con = sender.connection;
-    self.clientSessions[id] = sender;
+    var id = sender.id,
+        con = sender.connection;
+    server.getClientSessions(self)[id] = sender;
     if (con) {
-      con.on("close", function() { delete self.clientSessions[id]; });
+      con.on("close", function() { delete server.getClientSessions(self)[id]; });
     }
     messaging.answer(self, sender, msg, {
       success: true,
@@ -31,9 +32,9 @@ module.exports = {
   registerServer: function(self, sender, msg) {
     var id = sender.id;
     var con = sender.connection;
-    self.acceptedServerSessions[id] = sender;
+    server.getAcceptedServerSessions(self)[id] = sender;
     if (con) {
-      con.on("close", function() { delete self.acceptedServerSessions[id]; });
+      con.on("close", function() { delete server.getAcceptedServerSessions(self)[id]; });
     }
     messaging.answer(self, sender, msg, {
       success: true,
@@ -50,14 +51,14 @@ module.exports = {
 
   relay: function(receiver, sender, msg) {
     var relayedMsg = addProxy(receiver, msg),
-        target = receiver.clientSessions[msg.target];
+        target = server.getClientSessions(receiver)[msg.target];
 
     if (target) {
       messaging.send(receiver, target, relayedMsg);
     } else {
       var trackers = lang.obj.merge(
-            receiver.ownedServerSessions,
-            receiver.acceptedServerSessions),
+            server.getOwnedServerSessions(receiver),
+            server.getAcceptedServerSessions(receiver)),
           proxyIds = lang.arr.pluck(relayedMsg.proxies, "id");
       for (var id in trackers) {
         if (proxyIds.indexOf(id) !== -1) continue;
@@ -70,7 +71,7 @@ module.exports = {
     var opts        = lang.obj.isObject(msg.broadcast) ? msg.broadcast : {},
         ignored     = opts.ignored = [sender.id].concat(opts.ignored || []),
         msgToSend   = addProxy(receiver, util.assoc(msg, "broadcast", opts)),
-        connections = require("./server").allConnections(receiver, ignored);
+        connections = server.allConnections(receiver, ignored);
     opts.ignored = util.uniq(opts.ignored
       .concat([receiver.id])
       .concat(lang.arr.pluck(connections, "id")));

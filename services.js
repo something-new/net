@@ -8,7 +8,7 @@ module.exports = {
   },
 
   reportServices: function(self, sender, msg) {
-    var s = self.services;
+    var s = self.getState().services;
     messaging.answer(self, sender, msg, {
       services: s ? lang.properties.all(s) : []
     });

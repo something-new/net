@@ -27,7 +27,7 @@ function createServers(trackerPorts, thenDo) {
 function createClients(trackerPorts, clientsPerTracker, thenDo) {
   // clients for all trackers except the central one
   lang.chain(trackerPorts)
-    .flatmap(lang.arr.withN.bind(null,clientsPerTracker))
+    .flatmap(lang.arr.withN.bind(null, clientsPerTracker))
     .mapAsyncSeries(function(port, _, n) {
       client.start({debug: debug, port: port}, n);
     }, thenDo);

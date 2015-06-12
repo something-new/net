@@ -38,9 +38,9 @@ describe('client and server', function() {
       lang.fun.composeAsync(
         n => {
           var msg = messaging.sendTo(
-            client1, {id: client1.trackerId},
+            client1, {id: client.getTrackerId(client1)},
             "echo", "foo", (err, msg) => err && done(err));
-          client1.once("answer-"+msg.messageId, msg => n(null, msg));
+          client1.once("answer-" + msg.messageId, msg => n(null, msg));
         }
       )((err, {action, data, sender}) => {
         if (err) return done(err);
@@ -75,10 +75,9 @@ describe('client and server', function() {
       it("returns mnu answer", function(done) {
         lang.fun.composeAsync(
           n => {
-            messaging.sendAndReceive(client1, {id: client1.trackerId}, {
-              action: "dummyService",
-              data: null
-            }, n);
+            messaging.sendAndReceive(client1,
+              {id: client.getTrackerId(client1)},
+              {action: "dummyService", data: null}, n);
           }
         )((err, {action, data}) => {
           if (err) return done(err);
@@ -126,10 +125,9 @@ describe('client and server', function() {
     
       lang.fun.composeAsync(
         n => {
-          messaging.sendAndReceive(client1, {id: client1.trackerId}, {
-            action: "dummyService",
-            data: null
-          }, n);
+          messaging.sendAndReceive(client1,
+            {id: client.getTrackerId(client1)},
+            {action: "dummyService", data: null}, n);
         }
       )((err, {data}) => {
         if (err) return done(err);
@@ -152,7 +150,7 @@ describe('client and server', function() {
         n => {
           console.log("TEST NOTE: A WARNING MESSAGE IS EXPECTED");
           messaging.sendAndReceive(
-            client1, {id: client1.trackerId},
+            client1, {id: client.getTrackerId(client1)},
             {action: "echo", data: "foo"}, n);
         }
       )((err, msg) => {
@@ -168,7 +166,7 @@ describe('client and server', function() {
         n => tracker = server.start({debug: true, id: tracker.id, port: port}, n),
         (_, n) => setTimeout(n, 200),
         n => messaging.sendAndReceive(
-            client1, {id: client1.trackerId},
+            client1, {id: client.getTrackerId(client1)},
             {action: "echo", data: "foo"}, n)
       )((err, {action, data}) => {
         if (err) return done(err);

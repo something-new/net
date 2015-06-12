@@ -12,27 +12,38 @@ function connect(tracker, opts, thenDo) {
   opts.isFederationConnection = true;
   opts.id = tracker.id;
 
-  logger.log("federation connect", tracker, "init connecting to %s", opts.url || opts.port);
+  logger.log("federation connect", tracker,
+    "init connecting to %s", opts.url || opts.port);
+
   lang.fun.composeAsync(
     function(n) { client.start(opts, n); },
-    function(client, n) {
-      client.removeAllListeners("message");
-      client.on("message", function(msg, connection) {
-        tracker.emit("message", msg, connection);
+    function(c, n) {
+      c.removeAllListeners("message");
+      var ws = client.getConnection(c);
+      ws.removeAllListeners("message");
+      ws.on('message', function(msgString) {
+        try {
+          var msg = JSON.parse(msgString);
+        } catch (e) {
+          console.error("Tracker cannot read incoming message from owned server to server connection\n" + msgString);
+          return;
+        }
+        messaging.receive(tracker, ws, msg);
       });
-      n(null, client);
+
+      n(null, c);
     },
-    function(client, n) {
-      logger.log("federation connect", tracker, "connected to %s (via %s)", opts.url || opts.port, client.id);
-      tracker.ownedServerSessions[client.trackerId] = client;
-      client.on("close", function() { delete tracker.ownedServerSessions[client.trackerId]; });
-      n(null, client);
+    function(c, n) {
+      var tId = client.getTrackerId(c);
+
+      logger.log("federation connect", tracker,
+        "connected to %s (%s -> %s)", opts.url || opts.port, c.id, tId);
+
+      server.getOwnedServerSessions(tracker)[tId] = c;
+      c.on("close", function() { delete server.getOwnedServerSessions(tracker)[tId]; });
+      n(null, c);
     }
-    // function(client, n) {
-      
-    // }
   )(thenDo);
-//   {port: port2}
 }
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
