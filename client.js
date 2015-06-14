@@ -1,66 +1,16 @@
 var lang            = require("lively.lang");
 var WebSocket       = require('ws');
-var uuid            = require("node-uuid");
 var messaging       = require("./messaging");
 var logger          = require("./logger");
 var util            = require("./util");
 var defaultServices = require("./services");
+var interfaces      = require("./interfaces");
 
 var defaultPort = 10081;
 
 var CONNECTING = messaging.ConnectionStates.CONNECTING;
 var CONNECTED =  messaging.ConnectionStates.CONNECTED;
 var CLOSED =     messaging.ConnectionStates.CLOSED;
-
-var IDLE = messaging.SendStates.IDLE;
-
-function createClient(options, thenDo) {
-  var client = lang.events.makeEmitter({
-    options: options,
-    id: options.id,
-    trackerId: null,
-
-    services: lang.obj.clone(defaultServices),
-
-    state: {
-      services: lang.obj.clone(defaultServices),
-      connection: null,
-      connectionState: CONNECTING,
-      sendState: IDLE,
-    },
-
-    getState: function() { return stateFor(this); },
-
-    sendString: function(receiver, msgString, thenDo) {
-      return getConnection(client).send(msgString, thenDo);
-    },
-
-    inspect: function() {
-      return lang.string.format(
-        "Inspecting client %s\n  state: %s\n connected to: %s\n  send state: %s",
-        client.id,
-        this.state.connectionState,
-        getTrackerId(this),
-        messaging.logStateOf(this).split("\n").join("\n  "));
-    }
-
-  });
-
-  client.state._connectionState = client.state.connectionState;
-  client.state.__defineSetter__("connectionState", function(val) {
-      logger.log("client state", client, "%s -> %s", this._connectionState, val);
-    return this._connectionState = val;
-  });
-  client.state.__defineGetter__("connectionState", function() {
-    return this._connectionState;
-  });
-
-  client.on("close", onClose);
-
-  createWsConnection(client, options, thenDo);
-
-  return client;
-}
 
 function createWsConnection(client, options, thenDo) {
   var actions = lang.fun.either(
@@ -165,11 +115,36 @@ function start(options, thenDo) {
   options.url = options.url || "ws://" + host + ":" + port + "/" + path;
   options.register = options.hasOwnProperty("register") ?
     !!options.register : true;
-  options.id = options.id || "nodejs-client-" + uuid.v4();
   options.autoReconnect = options.hasOwnProperty("autoReconnect") ?
     !!options.autoReconnect : true;
 
-  return createClient(options, thenDo);
+  var client = interfaces.createMessenger(
+    "nodejs-client",
+    options,
+    {connection: null},
+    lang.obj.clone(defaultServices),
+
+    function clientSend(_, msgString, thenDo) {
+      return getConnection(client).send(msgString, thenDo);
+    },
+
+    function clientInspect() {
+      return lang.string.format(
+        "Inspecting client %s\n  state: %s\n connected to: %s\n  send state: %s",
+        client.id,
+        this.state.connectionState,
+        getTrackerId(this),
+        messaging.logStateOf(this).split("\n").join("\n  "));
+    });
+
+  client.trackerId = null;
+
+  client.on("close", onClose);
+
+  createWsConnection(client, options, thenDo);
+
+  return client;
+
 }
 
 function close(client, thenDo) {
@@ -191,10 +166,8 @@ function close(client, thenDo) {
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-function stateFor(client) { return (client && client.state) || {}; }
-
 function getServices(client) {
-  return stateFor(client).services || (stateFor(client).services = {});
+  return client.getState().services || (client.getState().services = {});
 }
 
 function addService(client, name, handler) {
@@ -207,27 +180,28 @@ function getTrackerId(client) {
 }
 
 function setTrackerId(client, trackerId) {
+  getConnection(client).id = trackerId;
   return client.trackerId = trackerId;
 }
 
 function getConnection(client) {
-  return stateFor(client).connection;
+  return client.getState().connection;
 }
 
 function setConnection(client, connection) {
-  return stateFor(client).connection = connection;
+  return client.getState().connection = connection;
 }
 
 function getConnectionState(client) {
-  return stateFor(client).connectionState;
+  return client.getState().connectionState;
 }
 
 function setConnectionState(client, state) {
-  return stateFor(client).connectionState = state;
+  return client.getState().connectionState = state;
 }
 
 function getSendState(client) {
-  return stateFor(client).sendState;
+  return client.getState().sendState;
 }
 
 module.exports = {

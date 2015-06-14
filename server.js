@@ -1,19 +1,16 @@
 var lang            = require("lively.lang");
 var obj             = lang.obj;
 var WebSocketServer = require('ws').Server;
-var uuid            = require("node-uuid");
 var messaging       = require("./messaging");
 var logger          = require("./logger");
 var client          = require("./client");
-var util            = require("./util");
+var interfaces      = require("./interfaces");
 
 var defaultPort = 10081;
 
 var CONNECTING = messaging.ConnectionStates.CONNECTING;
 var CONNECTED =  messaging.ConnectionStates.CONNECTED;
 var CLOSED =     messaging.ConnectionStates.CLOSED;
-
-var IDLE = messaging.SendStates.IDLE;
 
 function start(options, thenDo) {
   options = options || {};
@@ -23,37 +20,45 @@ function start(options, thenDo) {
   }
 
   options.clientTracking = true;
-  var server = new WebSocketServer(options)
-  var tracker = lang.events.makeEmitter({
-    options: options,
-    isTracker: true,
-    id: options.id || "nodejs-tracker-" + uuid.v4(),
+  var server = new WebSocketServer(options);
 
-    state: {
-      services: obj.merge(
-        require("./services"),
-        require("./server-services")),
+  var tracker = interfaces.createMessenger(
+    "nodejs-tracker",
+    options,
+    {
       server: server,
       clientSessions: {},
       ownedServerSessions: {},
-      acceptedServerSessions: {},
-      connectionState: CONNECTING,
-      sendState: IDLE
+      acceptedServerSessions: {}
     },
-
-    getState: function() { return stateFor(this); },
-
-    sendString: function(receiver, msgString, thenDo) {
-      var con = receiver && (receiver.state ? receiver.state.connection : receiver.connection);
-      if (!con) {
+  
+    obj.merge(
+      require("./services"),
+      require("./server-services")),
+  
+    function trackerSend(connection, msgString, thenDo) {
+      if (!connection) {
         console.error("server send: no websocket");
         return thenDo && thenDo(new Error("No websocket"));
       }
-      // FIXME cleanup!!!
-      con.send(msgString, function(err) { if (thenDo) thenDo(err); });
-    },
 
-    inspect: function() {
+      if (!connection.send && connection.id) {
+        var found = lang.arr.detect(allConnections(this),
+          function(ea) { return ea.id === connection.id; });
+        if (found) connection = found;
+      }
+
+      // FIXME cleanup!!!
+      if (!connection.send) {
+        var err = "Cannot send, " + require("util").inspect(connection, {depth: 0}) + " has no send method send!";
+        console.error(err);
+        thenDo(new Error(err));
+      } else{
+        connection.send(msgString, function(err) { if (thenDo) thenDo(err); });
+      }
+    },
+  
+    function trackerInspect() {
       return lang.string.format(
         "Inspecting tracker\n  state: %s\n  connected clients: %s\n  owned server sessions: %s\n  acceptedServerSessions: %s\n  send state: %s",
         this._connectionState,
@@ -61,17 +66,9 @@ function start(options, thenDo) {
         obj.keys(getOwnedServerSessions(this)).join(", "),
         obj.keys(getAcceptedServerSessions(this)).join(", "),
         messaging.logStateOf(this).split("\n").join("\n  "));
-    }
-  });
+    });
 
-  tracker.state._connectionState = tracker.state.connectionState;
-  tracker.state.__defineGetter__("connectionState", function() {
-    return this._connectionState;
-  });
-  tracker.state.__defineSetter__("connectionState", function(val) {
-    logger.log("tracker state", tracker, "%s -> %s", this._connectionState, val);
-    return this._connectionState = val;
-  });
+  tracker.isTracker = true;
 
   server.on("connection", function(ws) {
     ws.on('message', function(msgString) {
@@ -108,7 +105,8 @@ function close(tracker, thenDo) {
           .map(function(ea) {
             return function(n) {
               logger.log("server closes client", tracker, ea.id);
-              client.close(ea, n);
+              ea.close();
+              n();
             }
           }), n);
     },
@@ -139,10 +137,8 @@ function close(tracker, thenDo) {
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-function stateFor(tracker) { return (tracker && tracker.state) || {}; }
-
 function getServices(tracker) {
-  return stateFor(tracker).services || (stateFor(tracker).services = {});
+  return tracker.getState().services || (tracker.getState().services = {});
 }
 
 function addService(tracker, name, handler) {
@@ -151,19 +147,19 @@ function addService(tracker, name, handler) {
 }
 
 function getServer(tracker) {
-  return stateFor(tracker).server;
+  return tracker.getState().server;
 }
 
 function getClientSessions(tracker) {
-  return stateFor(tracker).clientSessions;
+  return tracker.getState().clientSessions;
 }
 
 function getOwnedServerSessions(tracker) {
-  return stateFor(tracker).ownedServerSessions;
+  return tracker.getState().ownedServerSessions;
 }
 
 function getAcceptedServerSessions(tracker) {
-  return stateFor(tracker).acceptedServerSessions;
+  return tracker.getState().acceptedServerSessions;
 }
 
 function allConnections(tracker, exceptIds) {
@@ -175,15 +171,15 @@ function allConnections(tracker, exceptIds) {
 }
 
 function getConnectionState(tracker) {
-  return stateFor(tracker).connectionState;
+  return tracker.getState().connectionState;
 }
 
 function setConnectionState(tracker, state) {
-  return stateFor(tracker).connectionState = state;
+  return tracker.getState().connectionState = state;
 }
 
 function getSendState(tracker) {
-  return stateFor(tracker).sendState;
+  return tracker.getState().sendState;
 }
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
