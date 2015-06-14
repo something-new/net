@@ -39,7 +39,7 @@ function createClient(options, thenDo) {
       return lang.string.format(
         "Inspecting client %s\n  state: %s\n connected to: %s\n  send state: %s",
         client.id,
-        messaging.stateName(this.state.connectionState),
+        this.state.connectionState,
         getTrackerId(this),
         messaging.logStateOf(this).split("\n").join("\n  "));
     }
@@ -48,9 +48,7 @@ function createClient(options, thenDo) {
 
   client.state._connectionState = client.state.connectionState;
   client.state.__defineSetter__("connectionState", function(val) {
-      logger.log("client state", client, "%s -> %s",
-      messaging.stateName(this._connectionState),
-      messaging.stateName(val));
+      logger.log("client state", client, "%s -> %s", this._connectionState, val);
     return this._connectionState = val;
   });
   client.state.__defineGetter__("connectionState", function() {

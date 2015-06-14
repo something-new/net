@@ -38,7 +38,7 @@ function start(options, thenDo) {
       ownedServerSessions: {},
       acceptedServerSessions: {},
       connectionState: CONNECTING,
-      sendState: IDLE,
+      sendState: IDLE
     },
 
     getState: function() { return stateFor(this); },
@@ -56,7 +56,7 @@ function start(options, thenDo) {
     inspect: function() {
       return lang.string.format(
         "Inspecting tracker\n  state: %s\n  connected clients: %s\n  owned server sessions: %s\n  acceptedServerSessions: %s\n  send state: %s",
-        messaging.stateName(this._connectionState),
+        this._connectionState,
         obj.keys(getClientSessions(this)).join(", "),
         obj.keys(getOwnedServerSessions(this)).join(", "),
         obj.keys(getAcceptedServerSessions(this)).join(", "),
@@ -65,14 +65,12 @@ function start(options, thenDo) {
   });
 
   tracker.state._connectionState = tracker.state.connectionState;
-  tracker.state.__defineSetter__("connectionState", function(val) {
-    logger.log("tracker state", tracker, "%s -> %s",
-      messaging.stateName(this._connectionState),
-      messaging.stateName(val));
-    return this._connectionState = val;
-  });
   tracker.state.__defineGetter__("connectionState", function() {
     return this._connectionState;
+  });
+  tracker.state.__defineSetter__("connectionState", function(val) {
+    logger.log("tracker state", tracker, "%s -> %s", this._connectionState, val);
+    return this._connectionState = val;
   });
 
   server.on("connection", function(ws) {

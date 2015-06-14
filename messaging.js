@@ -6,9 +6,9 @@ var util = require("./util");
 var counter = 1;
 
 var ConnectionStates = {
-  CLOSED: 1,
-  CONNECTING: 2,
-  CONNECTED: 3
+  CLOSED: "CLOSED",
+  CONNECTING: "CONNECTING",
+  CONNECTED: "CONNECTED"
 }
 
 var CLOSED = ConnectionStates.CLOSED;
@@ -16,16 +16,12 @@ var CONNECTING = ConnectionStates.CONNECTING;
 var CONNECTED = ConnectionStates.CONNECTED;
 
 var SendStates = {
-  SENDING: 1,
-  IDLE: 2
+  SENDING: "SENDING",
+  IDLE: "IDLE"
 }
 
 var SENDING = SendStates.SENDING;
 var IDLE = SendStates.IDLE;
-
-function stateName(state) {
-  return util.keyForValue(ConnectionStates, state);
-}
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -86,7 +82,8 @@ function removeSendQueue(sender) {
 }
 
 function scheduleSend(sender, receiver, msg, thenDo) {
-  logger.log("queueing send", sender, "%s", msg.action);
+  logger.log("queueing send", sender, "%s on %s. position",
+    msg.action, getSendQueue(sender).length);
   var q = getSendQueue(sender),
       data = [sender, receiver, msg, thenDo];
   q[msg.bypassQueue ? "unshift" : "push"](data);
@@ -127,11 +124,12 @@ function actualSend(sender, receiver, msg, thenDo) {
     if (thenDo) thenDo(new Error(errString));
     return;
   }
-
-  logger.log("send", sender, "%s (%s) -> %s",
-    msg.action,
-    stateName(sender.getState().connectionState),
-    msg.target);
+  var broadcast = !!msg.broadcast;
+  if (broadcast) {
+    logger.log("broadcasting", sender, "%s -> %s", msg.action, receiver.id);
+  } else {
+    logger.log("send", sender, "%s -> %s", msg.action, msg.target);
+  }
 
   try {
     var msgString = JSON.stringify(msg);
@@ -163,8 +161,6 @@ module.exports = {
 
   ConnectionStates: ConnectionStates,
   SendStates: SendStates,
-
-  stateName: stateName,
 
   _cleanReceivedMessageCache: function() {
     cleanReceivedMessageCache(receivedMessages);
@@ -217,8 +213,8 @@ module.exports = {
   },
 
   send: function(sender, receiver, msg, thenDo) {
+console.log(receiver);
     msg = ensureMessageProperties(sender, receiver, msg);
-
     if (sender.getState().connectionState === CONNECTING
      || sender.getState().sendState === SENDING
      || !!getSendQueue(sender).length) {
@@ -233,8 +229,8 @@ module.exports = {
   receive: function(receiver, connection, msg) {
     if (registerMessage(receiver, msg)) {
       logger.log("message already received", receiver,
-        "%s %s\n  from %s\n  proxies",
-        msg.action, msg.messageId, msg.sender, msg.proxies);
+        "%s %s\n  from %s / %s\n  proxies",
+        msg.action, msg.messageId, msg.sender, connection.id || "", msg.proxies);
       return;
     }
 

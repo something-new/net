@@ -3,7 +3,6 @@ var lang = require("lively.lang");
 module.exports = {
 
   log: function(topic, subject /*args ...*/) {
-
     var opts = subject && subject.options,
         printIt = opts && !!opts.debug,
         saveIt = opts && !!opts.retainLog;
@@ -12,7 +11,9 @@ module.exports = {
     var args = lang.arr.from(arguments),
         topic = args.shift(),
         subject = args.shift(),
-        prefix = lang.string.format("[%s %s] ", topic, subject.id),
+        prefix = lang.string.format(
+          "[%s %s (%s)] ", topic, subject.id,
+          subject.getState().connectionState),
         string = prefix + args.shift();
     args.unshift(string);
 
