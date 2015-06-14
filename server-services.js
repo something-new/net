@@ -13,12 +13,10 @@ function addProxy(proxy, msg) {
 module.exports = {
 
   registerClient: function(self, sender, msg) {
-    var id = sender.id,
-        con = sender.connection;
+    var id = msg.sender;
+    sender.id = id;
     server.getClientSessions(self)[id] = sender;
-    if (con) {
-      con.on("close", function() { delete server.getClientSessions(self)[id]; });
-    }
+    sender.on("close", function() { delete server.getClientSessions(self)[id]; });
     messaging.answer(self, sender, msg, {
       success: true,
       tracker: {id: self.id}
@@ -31,11 +29,12 @@ module.exports = {
 
   registerServer: function(self, sender, msg) {
     var id = sender.id;
-    var con = sender.connection;
+
     server.getAcceptedServerSessions(self)[id] = sender;
-    if (con) {
-      con.on("close", function() { delete server.getAcceptedServerSessions(self)[id]; });
-    }
+    sender.on("close", function() {
+      logger.log("accepted federation connection closed", self, "%s", id);
+      delete server.getAcceptedServerSessions(self)[id];
+    });
     messaging.answer(self, sender, msg, {
       success: true,
       tracker: {id: self.id}
@@ -45,7 +44,11 @@ module.exports = {
   knownSessions: function(self, sender, msg) {
     sessions.knownBy(self, msg.data.ignoredTrackers,
       function(err, sessions) {
-        messaging.answer(self, sender, msg, err ? {error: String(err)} : sessions);
+        if (err) {
+          console.error(err.stack || err);
+          sessions = {error: String(err.stack||err)};
+        }
+        messaging.answer(self, sender, msg, sessions);
       });
   },
 
@@ -62,7 +65,9 @@ module.exports = {
           proxyIds = lang.arr.pluck(relayedMsg.proxies, "id");
       for (var id in trackers) {
         if (proxyIds.indexOf(id) !== -1) continue;
-        messaging.send(receiver, trackers[id], relayedMsg);
+        var con = trackers[id];
+        if (con.state && con.state.connection) con = con.state.connection;
+        messaging.send(receiver, con, relayedMsg);
       }
     }
   },
@@ -75,8 +80,9 @@ module.exports = {
     opts.ignored = util.uniq(opts.ignored
       .concat([receiver.id])
       .concat(lang.arr.pluck(connections, "id")));
-    connections.forEach(function(sess) {
-      messaging.send(receiver, sess, msgToSend);
+    connections.forEach(function(con) {
+      if (con.state && con.state.connection) con = con.state.connection;
+      messaging.send(receiver, con, msgToSend);
     });
   },
 

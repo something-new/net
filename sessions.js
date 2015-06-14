@@ -34,8 +34,9 @@ function trackerSessionsRemote(tracker, ignored, thenDo) {
   lang.arr.mapAsyncSeries(otherTrackers,
     function(trackerCon, _, n) {
       messaging.sendAndReceive(tracker,
-        {connection: client.getConnection(trackerCon),
-         id: client.getTrackerId(trackerCon)},
+        trackerCon,
+        // {connection: client.getConnection(trackerCon),
+        // id: client.getTrackerId(trackerCon)},
         {action: "knownSessions", data: {ignoredTrackers: ignored}},
         function(err, answer) { n(err, answer ? answer.data : []); });
     },
@@ -53,7 +54,10 @@ function trackerSessions(tracker, ignored, thenDo) {
       trackerSessionsRemote(
         tracker, ignored,
         function(err, remoteSessions) {
-          n(err, (localSessions || []).concat(remoteSessions || []));
+          var sessions = (localSessions || []).concat(remoteSessions || []);
+          sessions = lang.arr.uniqBy(sessions,
+            function(a, b) { return a.id === b.id; });
+          n(err, sessions);
         });
     })(thenDo);
 }
@@ -75,7 +79,7 @@ module.exports = {
           data: {ignoredTrackers: ignored.concat([client.getTrackerId(participant)])}
         },
         function(err, answer) {
-          err && console.log(err.stack);
+          err && console.error(err.stack || err);
           thenDo(err, answer ? answer.data : []);
         });
     }

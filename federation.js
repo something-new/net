@@ -25,7 +25,9 @@ function connect(tracker, opts, thenDo) {
         try {
           var msg = JSON.parse(msgString);
         } catch (e) {
-          console.error("Tracker cannot read incoming message from owned server to server connection\n" + msgString);
+          console.error("Tracker cannot read incoming message "
+                      + " from owned server to server connection\n"
+                      + msgString);
           return;
         }
         messaging.receive(tracker, ws, msg);
@@ -39,8 +41,12 @@ function connect(tracker, opts, thenDo) {
       logger.log("federation connect", tracker,
         "connected to %s (%s -> %s)", opts.url || opts.port, c.id, tId);
 
-      server.getOwnedServerSessions(tracker)[tId] = c;
-      c.on("close", function() { delete server.getOwnedServerSessions(tracker)[tId]; });
+      // server.getOwnedServerSessions(tracker)[tId] = c;
+      server.getOwnedServerSessions(tracker)[tId] = client.getConnection(c);
+      c.on("close", function() {
+        logger.log("owned federation connection closed", tracker, "%s", opts.url);
+        delete server.getOwnedServerSessions(tracker)[tId];
+      });
       n(null, c);
     }
   )(thenDo);

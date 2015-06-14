@@ -162,10 +162,6 @@ module.exports = {
   ConnectionStates: ConnectionStates,
   SendStates: SendStates,
 
-  _cleanReceivedMessageCache: function() {
-    cleanReceivedMessageCache(receivedMessages);
-  },
-
   clearCacheFor: function(sender) {
     cleanReceivedMessageCacheForReceiver(receivedMessages, sender);
     removeSendQueue(sender);
@@ -182,6 +178,7 @@ module.exports = {
   answer: function(self, sender, origMsg, data, thenDo) {
     return origMsg.noResponse ? null :
       module.exports.send(self, sender, {
+        target: origMsg.sender,
         action: origMsg.action + "Result",
         inResponseTo: origMsg.messageId,
         data: data
@@ -213,7 +210,6 @@ module.exports = {
   },
 
   send: function(sender, receiver, msg, thenDo) {
-console.log(receiver);
     msg = ensureMessageProperties(sender, receiver, msg);
     if (sender.getState().connectionState === CONNECTING
      || sender.getState().sendState === SENDING
@@ -226,11 +222,11 @@ console.log(receiver);
     return msg;
   },
 
-  receive: function(receiver, connection, msg) {
+  receive: function(receiver, sender, msg) {
     if (registerMessage(receiver, msg)) {
       logger.log("message already received", receiver,
         "%s %s\n  from %s / %s\n  proxies",
-        msg.action, msg.messageId, msg.sender, connection.id || "", msg.proxies);
+        msg.action, msg.messageId, msg.sender, sender.id || "", msg.proxies);
       return;
     }
 
@@ -248,7 +244,6 @@ console.log(receiver);
     }
 
     var services = receiver.getState().services || {},
-        sender = {id: msg.sender, connection: connection},
         handler = services[action];
 
     if (relay) {

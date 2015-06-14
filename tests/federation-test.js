@@ -107,6 +107,20 @@ describe("federation", function() {
       });
     });
 
+    it("msg send: t1 => t2", function(done) {
+      lang.fun.composeAsync(
+        n => messaging.sendAndReceive(
+          tracker1, {id: tracker2.id},
+          {action: "echo", data: "foo"}, n)
+      )((err, {action, data, sender}) => {
+        if (err) return done(err);
+        expect(sender).eq(tracker2.id);
+        expect(action).eq("echoResult");
+        expect(data).eq("foo");
+        done();
+      });
+    });
+
     it(`msg send: finds some way
      +-+      
  +-->+B+----+ 
