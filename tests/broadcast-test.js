@@ -3,6 +3,8 @@
 var chai = module.require('chai');
 chai.use(require('chai-subset'));
 var expect = chai.expect;
+var mochaPlugins = require("./mocha-plugins");
+var msgRec = mochaPlugins.messageRecorder;
 
 var lang = require("lively.lang");
 var server = require("../server.js");
@@ -10,53 +12,25 @@ var client = require("../client.js");
 var messaging = require("../messaging");
 var federation = require("../federation");
 
+var debug = true;
 var port = 10082;
-
-var receivedMessages;
-function recordMessage(receiver, msg) {
-  var recorded = receivedMessages.get(receiver) || [];
-  recorded.push(msg);
-  receivedMessages.set(receiver, recorded);
-  return msg;
-}
-
-chai.use(function (_chai, utils) {
-  utils.addMethod(chai.Assertion.prototype, 'received', function(messageSubsets) {
-    var receiver = utils.flag(this, 'object');
-    if (!messageSubsets) {
-      new chai.Assertion(receivedMessages.get(receiver)).to.equal(messageSubsets);
-    } else {
-      this.assert(receivedMessages.get(receiver), "no received messages for " + receiver.id);
-      new chai.Assertion(receivedMessages.get(receiver))
-        .lengthOf(
-          messageSubsets.length,
-          "message count does  not match");
-      new chai.Assertion(receivedMessages.get(receiver))
-        .containSubset(
-          messageSubsets,
-          "expected message props donot match");
-    }
-  });
-});
-
-// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 describe('broadcast', function() {
 
   var tracker, client1, client2,
-      clients, trackers;
+      clients, trackers,
+      receivedMessages;
 
   beforeEach(function(done) {
     console.log("[TESTING] >>> \"%s\"", this.currentTest.title);
     receivedMessages = new Map();
+    msgRec.install(receivedMessages);
     lang.fun.composeAsync(
-      n => tracker = server.start({debug: true, port: port}, n),
-      (_, n) => client1 = client.start({debug: true, port: port}, n),
-      (_, n) => client2 = client.start({debug: true, port: port}, n),
+      n => tracker = server.start({debug: debug, port: port}, n),
+      (_, n) => client1 = client.start({debug: debug, port: port}, n),
+      (_, n) => client2 = client.start({debug: debug, port: port}, n),
       (_, n) => {
-        client1.on("message", m => recordMessage(client1, m));
-        client2.on("message", m => recordMessage(client2, m));
-        tracker.on("message", m => recordMessage(tracker, m));
+        msgRec.add(receivedMessages, tracker, client1, client2);
         clients = [client1, client2];
         trackers = [tracker];
         n();
@@ -105,20 +79,19 @@ describe('broadcast', function() {
 
         // 1. connect it up
         lang.fun.composeAsync(
-          n      => B = server.start({debug: true, port: portB}, n),
-          (_, n) => C = server.start({debug: true, port: portC}, n),
-          (_, n) => D = server.start({debug: true, port: portD}, n),
-          (_, n) => clientOfD = client.start({debug: true, port: portD}, n),
+          n      => B = server.start({debug: debug, port: portB}, n),
+          (_, n) => C = server.start({debug: debug, port: portC}, n),
+          (_, n) => D = server.start({debug: debug, port: portD}, n),
+          (_, n) => clientOfD = client.start({debug: debug, port: portD}, n),
           (_, n) => federation.connect(A, {port: portB}, n),
           (_, n) => federation.connect(B, {port: portD}, n),
           (_, n) => federation.connect(A, {port: portC}, n),
           (_, n) => federation.connect(C, {port: portD}, n),
           (_, n) => {
+            console.log(`A: ${A.id}\nB: ${B.id}\nC: ${C.id}\nD: ${D.id}\nclient 1 of A: ${client1.id}\nclient 2 of A: ${client2.id}\nclient 1 of D: ${clientOfD.id}`);
             receivedMessages = new Map();
-            clientOfD.on("message", m => recordMessage(clientOfD, m));
-            B.on("message", m => recordMessage(B, m));
-            C.on("message", m => recordMessage(C, m));
-            D.on("message", m => recordMessage(D, m));
+            msgRec.install(receivedMessages);
+            msgRec.add(receivedMessages, client1, client2, clientOfD, A,B,C,D);
             clients = clients.concat([clientOfD]);
             trackers = trackers.concat([B, C, D]);
             n();
