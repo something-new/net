@@ -36,7 +36,7 @@ function start(options, thenDo) {
       require("./services"),
       require("./server-services")),
   
-    function trackerSend(connection, msgString, thenDo) {
+    function trackerSend(connection, msg, thenDo) {
       if (!connection) {
         console.error("server send: no websocket");
         return thenDo && thenDo(new Error("No websocket"));
@@ -52,10 +52,18 @@ function start(options, thenDo) {
       if (!connection.send) {
         var err = "Cannot send, " + require("util").inspect(connection, {depth: 0}) + " has no send method send!";
         console.error(err);
-        thenDo(new Error(err));
-      } else{
-        connection.send(msgString, function(err) { if (thenDo) thenDo(err); });
+        return thenDo(new Error(err));
       }
+    
+      try {
+        var msgString = JSON.stringify(msg);
+      } catch (e) {
+        var errMsg = "Cannot stringify message " + e;
+        console.error(errMsg);
+        return thenDo && thenDo(new Error(errMsg));
+      }
+
+      connection.send(msgString, function(err) { if (thenDo) thenDo(err); });
     },
   
     function trackerInspect() {

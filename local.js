@@ -16,10 +16,10 @@ function create(options, thenDo) {
     {},
     // lang.obj.clone(defaultServices),
 
-    function localSend(receiver, msgString, thenDo) {
+    function localSend(receiver, msg, thenDo) {
       var con = receiver && (receiver.state ? receiver.state.connection : receiver.connection);
       try {
-        receiver.receiveString(this, msgString);
+        receiver.receive(this, msg);
       } catch (e) { return thenDo && thenDo(e); }
       thenDo && thenDo();
     },
@@ -31,13 +31,7 @@ function create(options, thenDo) {
         messaging.logStateOf(this).split("\n").join("\n  "));
     })
 
-  o.receiveString = function(sender, msgString) {
-    try {
-      var msg = JSON.parse(msgString);
-    } catch (e) {
-      console.error("Local messenger cannot read incoming message " + msgString);
-      return;
-    }
+  o.receive = function(sender, msg) {
     messaging.receive(this, sender, msg);
   }
 

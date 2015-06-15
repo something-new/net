@@ -124,7 +124,15 @@ function start(options, thenDo) {
     {connection: null},
     lang.obj.clone(defaultServices),
 
-    function clientSend(_, msgString, thenDo) {
+    function clientSend(_, msg, thenDo) {
+      try {
+        var msgString = JSON.stringify(msg);
+      } catch (e) {
+        var errMsg = "Cannot stringify message " + e;
+        console.error(errMsg);
+        return thenDo && thenDo(new Error(errMsg));
+      }
+
       return getConnection(client).send(msgString, thenDo);
     },
 

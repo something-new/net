@@ -4,17 +4,17 @@ var chai = module.require('chai');
 chai.use(require('chai-subset'));
 var expect = chai.expect;
 
-var lang = require("lively.lang");
-var server = require("../server.js");
-var client = require("../client.js");
-var federation = require("../federation.js");
-var messaging = require("../messaging");
-var sessions = require("../sessions");
+var lang       = require("lively.lang"),
+    server     = require("../server.js"),
+    client     = require("../client.js"),
+    federation = require("../federation.js"),
+    messaging  = require("../messaging"),
+    sessions   = require("../sessions");
 
-var port1 = 10082;
-var port2 = 10083;
-var port3 = 10084;
-var port4 = 10085;
+var port1 = 10082,
+    port2 = 10083,
+    port3 = 10084,
+    port4 = 10085;
 
 describe("federation", function() {
 

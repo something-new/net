@@ -131,14 +131,6 @@ function actualSend(sender, receiver, msg, thenDo) {
     logger.log("send", sender, "%s -> %s", msg.action, msg.target);
   }
 
-  try {
-    var msgString = JSON.stringify(msg);
-  } catch (e) {
-    var errMsg = "Cannot stringify message " + e;
-    console.error(errMsg);
-    thenDo && thenDo(new Error(errMsg));
-  }
-
   var actions = lang.fun.either(
     function() {
       // client.sendState = client.sendQueue.length ? SENDING : IDLE;
@@ -153,7 +145,7 @@ function actualSend(sender, receiver, msg, thenDo) {
   setTimeout(actions[0], 2000);
 
   // sender.sendState = SENDING;
-  sender.sendString(receiver, msgString, actions[1]);
+  sender.sendString(receiver, msg, actions[1]);
   return msg;
 }
 

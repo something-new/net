@@ -41,11 +41,10 @@ describe('local', function() {
         n => {
           messaging.sendAndReceive(o1, o2, {action: "echo", data: "foo"}, n);
         }
-      )((err, msg) => {
+      )((err, {action, sender}) => {
         if (err) return done(err);
-console.log("????");        
-        // expect(action).to.equal("echoResult");
-        // expect(sender).to.equal(o2.id);
+        expect(action).to.equal("echoResult");
+        expect(sender).to.equal(o2.id);
         done();
       });
     });
