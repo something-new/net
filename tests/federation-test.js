@@ -5,11 +5,11 @@ chai.use(require('chai-subset'));
 var expect = chai.expect;
 
 var lang       = require("lively.lang"),
-    server     = require("../server.js"),
-    client     = require("../client.js"),
-    federation = require("../federation.js"),
-    messaging  = require("../messaging"),
-    sessions   = require("../sessions");
+    server     = require("../lib/nodejs/server"),
+    client     = require("../lib/nodejs/client"),
+    federation = require("../lib/nodejs/federation"),
+    messaging  = require("../lib/interface/messaging"),
+    sessions   = require("../lib/sessions");
 
 var port1 = 10082,
     port2 = 10083,

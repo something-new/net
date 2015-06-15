@@ -1,15 +1,6 @@
 var lang = require("lively.lang");
 var helper = require("../helper")
 
-// var client = require("../../client");
-// var server = require("../../server");
-// var messaging = require("../../messaging");
-// var federation = require("../../federation");
-// var path = require("path");
-// var fs = require("fs");
-
-// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
 var trackerPorts = lang.arr.range(10083, 10088);
 var clientsPerTracker = 3;
 var clients, trackers;

@@ -5,9 +5,9 @@ chai.use(require('chai-subset'));
 var expect = chai.expect;
 
 var lang = require("lively.lang");
-var server = require("../server.js");
-var client = require("../client.js");
-var messaging = require("../messaging");
+var server = require("../lib/nodejs/server");
+var client = require("../lib/nodejs/client");
+var messaging = require("../lib/interface/messaging");
 
 var port = 10082;
 

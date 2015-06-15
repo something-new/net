@@ -1,8 +1,8 @@
 var lang = require("lively.lang");
-var client = require("../client");
-var server = require("../server");
-var messaging = require("../messaging");
-var federation = require("../federation");
+var client = require("../lib/nodejs/client");
+var server = require("../lib/nodejs/server");
+var messaging = require("../lib/interface/messaging");
+var federation = require("../lib/nodejs/federation");
 var path = require("path");
 var fs = require("fs");
 

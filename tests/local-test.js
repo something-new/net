@@ -7,8 +7,8 @@ var mochaPlugins = require("./mocha-plugins");
 var msgRec = mochaPlugins.messageRecorder;
 
 var lang = require("lively.lang");
-var local = require("../local.js");
-var messaging = require("../messaging");
+var local = require("../lib/local.js");
+var messaging = require("../lib/interface/messaging");
 
 var debug = true;
 

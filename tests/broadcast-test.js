@@ -7,10 +7,10 @@ var mochaPlugins = require("./mocha-plugins");
 var msgRec = mochaPlugins.messageRecorder;
 
 var lang = require("lively.lang");
-var server = require("../server.js");
-var client = require("../client.js");
-var messaging = require("../messaging");
-var federation = require("../federation");
+var server = require("../lib/nodejs/server");
+var client = require("../lib/nodejs/client");
+var messaging = require("../lib/interface/messaging");
+var federation = require("../lib/nodejs/federation");
 
 var debug = true;
 var port = 10082;
