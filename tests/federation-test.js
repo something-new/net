@@ -31,6 +31,7 @@ describe("federation", function() {
       n => client2 = client.start({debug: true, port: port2}, n),
       n => federation.connect(tracker1, {port: port2}, n),
     ], function(err, results) {
+      err && console.error(err.stack || err);
       results = lang.arr.flatten(results);
       trackers = results.slice(0,2);
       clients = results.slice(2,4);
@@ -41,8 +42,8 @@ describe("federation", function() {
   afterEach(function(done) {
     console.log("[TESTING DONE] <<< \"%s\"", this.currentTest.title);
     lang.fun.composeAsync(
-      n      => lang.fun.waitForAll(clients.map(c => n => client.close(c, n)), n),
-      (_, n) => lang.fun.waitForAll(trackers.map(t => n => server.close(t, n)), n)
+      n      => clients ? lang.fun.waitForAll(clients.map(c => n => client.close(c, n)), n) : n(null,null),
+      (_, n) => trackers ? lang.fun.waitForAll(trackers.map(t => n => server.close(t, n)), n) : n(null,null)
     )(done);
   });
 
