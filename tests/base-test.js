@@ -25,10 +25,16 @@ describe('client and server', function() {
   
   afterEach(function(done) {
     console.log("[TESTING DONE] <<< \"%s\"", this.currentTest.title);
+    var test = this;
     lang.fun.waitForAll([
+      n => { console.log("1"); n(); },
       n => client1 ? client.close(client1, n) : n(),
+      n => { console.log("2"); n(); },
       n => client2 ? client.close(client2, n) : n(),
-      n => server.close(tracker, n)
+      n => { console.log("3"); n(); },
+      n => server.close(tracker, n),
+      n => { console.log("4"); n(); },
+      n => { console.log("[TESTING DONE] <<< \"%s\"", test.currentTest.title); n(); }
     ], done);
   });
 
@@ -70,73 +76,73 @@ describe('client and server', function() {
     });
 
 
-    describe("message not understood", function() {
+    // describe("message not understood", function() {
       
-      it("returns mnu answer", function(done) {
-        lang.fun.composeAsync(
-          n => {
-            messaging.sendAndReceive(client1,
-              {id: client.getTrackerId(client1)},
-              {action: "dummyService", data: null}, n);
-          }
-        )((err, {action, data}) => {
-          if (err) return done(err);
-          expect(action).eq("dummyServiceResult");
-          expect(data).deep.eq({error: "message not understood"});
-          done();
-        });
-      });
+    //   it("returns mnu answer", function(done) {
+    //     lang.fun.composeAsync(
+    //       n => {
+    //         messaging.sendAndReceive(client1,
+    //           {id: client.getTrackerId(client1)},
+    //           {action: "dummyService", data: null}, n);
+    //       }
+    //     )((err, {action, data}) => {
+    //       if (err) return done(err);
+    //       expect(action).eq("dummyServiceResult");
+    //       expect(data).deep.eq({error: "message not understood"});
+    //       done();
+    //     });
+    //   });
   
-    });
+    // });
 
-    describe("duplicated messages", function() {
-      it("are send only once", function(done) {
-        var receivedBy1 = [],
-            receivedBy2 = [];
-        lang.fun.composeAsync(
-          n => client2 = client.start({debug: true, port: port}, n),
-          (_, n) => {
-            client1.on("message", m => receivedBy1.push(m));
-            client2.on("message", m => receivedBy2.push(m));
-            n();
-          },
-          n => {
-            var msg = messaging.sendTo(client1, {id: client2.id}, "echo", "foo");
-            messaging.send(client1, {id: client2.id}, msg);
-            setTimeout(n, 200);
-          }
-        )(err => {
-          if (err) return done(err);
-          expect(receivedBy1).to.have.length(1);
-          expect(receivedBy2).to.have.length(1);
-          done();
-        });
-      });
-    });
-
-  });
-
-  describe("services", function() {
-    
-    it("server add a service", function(done) {
-      server.addService(tracker, "dummyService", (self, sender, msg) => {
-        messaging.answer(self, sender, msg, "dummyService here");
-      });
-    
-      lang.fun.composeAsync(
-        n => {
-          messaging.sendAndReceive(client1,
-            {id: client.getTrackerId(client1)},
-            {action: "dummyService", data: null}, n);
-        }
-      )((err, {data}) => {
-        if (err) return done(err);
-        expect(data).eq("dummyService here");
-        done();
-      });
-    });
+    // describe("duplicated messages", function() {
+    //   it("are send only once", function(done) {
+    //     var receivedBy1 = [],
+    //         receivedBy2 = [];
+    //     lang.fun.composeAsync(
+    //       n => client2 = client.start({debug: true, port: port}, n),
+    //       (_, n) => {
+    //         client1.on("message", m => receivedBy1.push(m));
+    //         client2.on("message", m => receivedBy2.push(m));
+    //         n();
+    //       },
+    //       n => {
+    //         var msg = messaging.sendTo(client1, {id: client2.id}, "echo", "foo");
+    //         messaging.send(client1, {id: client2.id}, msg);
+    //         setTimeout(n, 200);
+    //       }
+    //     )(err => {
+    //       if (err) return done(err);
+    //       expect(receivedBy1).to.have.length(1);
+    //       expect(receivedBy2).to.have.length(1);
+    //       done();
+    //     });
+    //   });
+    // });
 
   });
+
+  // describe("services", function() {
+    
+  //   it("server add a service", function(done) {
+  //     server.addService(tracker, "dummyService", (self, sender, msg) => {
+  //       messaging.answer(self, sender, msg, "dummyService here");
+  //     });
+    
+  //     lang.fun.composeAsync(
+  //       n => {
+  //         messaging.sendAndReceive(client1,
+  //           {id: client.getTrackerId(client1)},
+  //           {action: "dummyService", data: null}, n);
+  //       }
+  //     )((err, {data}) => {
+  //       if (err) return done(err);
+  //       expect(data).eq("dummyService here");
+  //       done();
+  //     });
+  //   });
+
+  // });
 
   describe("reconnection", function() {
 
