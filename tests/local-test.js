@@ -39,7 +39,7 @@ describe('local', function() {
     it("send / receive in same env", function(done) {
       lang.fun.composeAsync(
         n => {
-          messaging.sendAndReceive(o1, o2, {action: "echo", data: "foo"}, n);
+          messaging.sendAndReceive(o1, o2, o2, {action: "echo", data: "foo"}, n);
         }
       )((err, {action, sender}) => {
         if (err) return done(err);

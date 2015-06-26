@@ -50,7 +50,8 @@ describe('broadcast', function() {
     lang.fun.composeAsync(
       n => {
         var msg = messaging.send(
-          client1, {id: client.getTrackerId(client1)},
+          client1, client.getConnection(client1),
+          {id: client.getTrackerId(client1)},
           {broadcast: true, noResponse: true, action: "echo", data: "foo"},
           (err, msg) => err && done(err));
         setTimeout(n, 100);
@@ -100,7 +101,8 @@ describe('broadcast', function() {
           // 2. broadcast
           n => {
             var msg = messaging.send(
-              client1, {id: client.getTrackerId(client1)},
+              client1, client.getConnection(client1),
+              {id: client.getTrackerId(client1)},
               {broadcast: true, noResponse: true, action: "echo", data: "foo"},
               (err, msg) => err && done(err));
             setTimeout(n, 100);

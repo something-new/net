@@ -46,7 +46,8 @@ function sendEcho(logString, payload, from, to, thenDo) {
   msgsSend++;
   var t = Date.now(), err;
   var msg = messaging.sendAndReceive(
-    from, {id: to.id}, {action: "echo", data: payload},
+    from, client.getConnection(from),
+    {id: to.id}, {action: "echo", data: payload},
     function(err, answer) {
       if (!err && answer) msgsReceived++;
       log("%s: %s -> %s in %s ms",
