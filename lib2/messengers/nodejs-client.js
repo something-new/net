@@ -85,6 +85,7 @@ Client.prototype.connect = function(thenDo) {
       messenger.addConnection('tracker', connection);
 
       connection.once("close", function() {
+        messenger.trackerId = null;
         logger.log("client close", messenger, "disconnected from %s", opts.url);
         messenger.removeConnection(connection);
       });

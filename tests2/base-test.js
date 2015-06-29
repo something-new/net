@@ -24,7 +24,7 @@ describe('client and server', function() {
       (_, n) => client1 = client.start({debug: debug, port: port}, n)
     )(done);
   });
-  
+
   afterEach(function(done) {
     console.log("[TESTING DONE] <<< \"%s\"", this.currentTest.title);
     lang.fun.composeAsync(
@@ -73,64 +73,64 @@ describe('client and server', function() {
     });
 
 
-  //   describe("message not understood", function() {
-      
-  //     it("returns mnu answer", function(done) {
-  //       lang.fun.composeAsync(
-  //         n => {
-  //           messaging.sendAndReceive(
-  //             client1, client1.getConnection(),
-  //             {id: client1.trackerId},
-  //             {action: "dummyService", data: null}, n);
-  //         }
-  //       )((err, {action, data}) => {
-  //         if (err) return done(err);
-  //         expect(action).eq("dummyServiceResult");
-  //         expect(data).deep.eq({error: "message not understood"});
-  //         done();
-  //       });
-  //     });
-  
-  //   });
+    describe("message not understood", function() {
 
-  //   describe("duplicated messages", function() {
-  //     it("are send only once", function(done) {
-  //       var receivedBy1 = [],
-  //           receivedBy2 = [];
-  //       lang.fun.composeAsync(
-  //         n => client2 = client.start({debug: debug, port: port}, n),
-  //         (_, n) => {
-  //           client1.on("message", m => receivedBy1.push(m));
-  //           client2.on("message", m => receivedBy2.push(m));
-  //           n();
-  //         },
-  //         n => {
-  //           var msg = messaging.sendTo(
-  //             client1, client1.getConnection(),
-  //             {id: client2.id}, "echo", "foo");
-  //           messaging.send(
-  //             client1, client1.getConnection(),
-  //             {id: client2.id}, msg);
-  //           setTimeout(n, 200);
-  //         }
-  //       )(err => {
-  //         if (err) return done(err);
-  //         expect(receivedBy1).to.have.length(1);
-  //         expect(receivedBy2).to.have.length(1);
-  //         done();
-  //       });
-  //     });
-  //   });
+      it("returns mnu answer", function(done) {
+        lang.fun.composeAsync(
+          n => {
+            messaging.sendAndReceive(
+              client1, client1.getConnection(),
+              {id: client1.trackerId},
+              {action: "dummyService", data: null}, n);
+          }
+        )((err, {action, data}) => {
+          if (err) return done(err);
+          expect(action).eq("dummyServiceResult");
+          expect(data).deep.eq({error: "message not understood"});
+          done();
+        });
+      });
 
-  // });
+    });
+
+    describe("duplicated messages", function() {
+      it("are send only once", function(done) {
+        var receivedBy1 = [],
+            receivedBy2 = [];
+        lang.fun.composeAsync(
+          n => client2 = client.start({debug: debug, port: port}, n),
+          (_, n) => {
+            client1.on("message", m => receivedBy1.push(m));
+            client2.on("message", m => receivedBy2.push(m));
+            n();
+          },
+          n => {
+            var msg = messaging.sendTo(
+              client1, client1.getConnection(),
+              {id: client2.id}, "echo", "foo");
+            messaging.send(
+              client1, client1.getConnection(),
+              {id: client2.id}, msg);
+            setTimeout(n, 200);
+          }
+        )(err => {
+          if (err) return done(err);
+          expect(receivedBy1).to.have.length(1);
+          expect(receivedBy2).to.have.length(1);
+          done();
+        });
+      });
+    });
+
+  });
 
   // describe("services", function() {
-    
+
   //   it("server add a service", function(done) {
   //     server.addService(tracker, "dummyService", (self, sender, msg) => {
   //       messaging.answer(self, sender, sender, msg, "dummyService here");
   //     });
-    
+
   //     lang.fun.composeAsync(
   //       n => {
   //         messaging.sendAndReceive(
@@ -147,46 +147,46 @@ describe('client and server', function() {
 
   // });
 
-  // describe("reconnection", function() {
+  describe("reconnection", function() {
 
-  //   it("client does not reconnect when closed", function(done) {
-  //     lang.fun.composeAsync(
-  //       n => client.close(client1, n),
-  //       n => server.close(tracker, n),
-  //       n => setTimeout(n, 200),
-  //       n => tracker = server.start({debug: debug, port: port}, n),
-  //       (_, n) => setTimeout(n, 200),
-  //       n => {
-  //         console.log("TEST NOTE: A WARNING MESSAGE IS EXPECTED");
-  //         messaging.sendAndReceive(
-  //           client1, client1.getConnection(),
-  //           {id: client1.trackerId},
-  //           {action: "echo", data: "foo"}, n);
-  //       }
-  //     )((err, msg) => {
-  //       expect(String(err)).match(/cannot send.*not connected/i);
-  //       done();
-  //     });
-  //   });
+    it("client does not reconnect when closed", function(done) {
+      lang.fun.composeAsync(
+        n => client1.close(n),
+        n => tracker.close(n),
+        n => setTimeout(n, 200),
+        n => tracker = server.start({debug: debug, port: port}, n),
+        (_, n) => setTimeout(n, 200),
+        n => {
+          console.log("TEST NOTE: A WARNING MESSAGE IS EXPECTED");
+          messaging.sendAndReceive(
+            client1, client1.getConnection(),
+            {id: client1.trackerId},
+            {action: "echo", data: "foo"}, n);
+        }
+      )((err, msg) => {
+        expect(String(err)).match(/cannot send.*not connected/i);
+        done();
+      });
+    });
 
-  //   it("client re-establishes connection when server fails", function(done) {
-  //     lang.fun.composeAsync(
-  //       n => server.close(tracker, n),
-  //       n => setTimeout(n, 200),
-  //       n => tracker = server.start({debug: debug, id: tracker.id, port: port}, n),
-  //       (_, n) => setTimeout(n, 200),
-  //       n => messaging.sendAndReceive(
-  //           client1, client1.getConnection(),
-  //           {id: client1.trackerId},
-  //           {action: "echo", data: "foo"}, n)
-  //     )((err, {action, data}) => {
-  //       if (err) return done(err);
-  //       expect(action).eq("echoResult");
-  //       expect(data).eq("foo");
-  //       done();
-  //     });
-  //   });
-    
+    // it("client re-establishes connection when server fails", function(done) {
+    //   lang.fun.composeAsync(
+    //     n => server.close(tracker, n),
+    //     n => setTimeout(n, 200),
+    //     n => tracker = server.start({debug: debug, id: tracker.id, port: port}, n),
+    //     (_, n) => setTimeout(n, 200),
+    //     n => messaging.sendAndReceive(
+    //         client1, client1.getConnection(),
+    //         {id: client1.trackerId},
+    //         {action: "echo", data: "foo"}, n)
+    //   )((err, {action, data}) => {
+    //     if (err) return done(err);
+    //     expect(action).eq("echoResult");
+    //     expect(data).eq("foo");
+    //     done();
+    //   });
+    // });
+
   });
 
 });

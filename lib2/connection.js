@@ -22,6 +22,12 @@ function Connection(options) {
   this.__defineGetter__("_connection", function() { return connection; });
 
   this._status = UNKNOWN;
+
+  this.on("status", function(status) {
+    logger.log("status change", this, "=> %s", status);
+    this._status = status;
+  }.bind(this));
+
 };
 
 Connection.prototype.start = function(thenDo) {
@@ -167,12 +173,6 @@ function normalizeOptions(options) {
 function create(options) {
 
   var con = new Connection(normalizeOptions(options));
-
-  con.on("status", function(status) {
-    logger.log("status change", con, "=> %s", status);
-    con._status = status;
-  });
-
   return con;
 }
 

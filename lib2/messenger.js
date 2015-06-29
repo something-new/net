@@ -72,8 +72,8 @@ Messenger.prototype.addConnectionListener = function(l) {
 }
 
 Messenger.prototype.findConnection = function(id, thenDo) {
-  var cons = this._connections[id];
-  var con = cons && cons[0];
+  var cons = this._connections[id],
+      con = cons && cons[0];
   thenDo(null, con);
   return this;
 }
