@@ -124,28 +124,28 @@ describe('client and server', function() {
 
   });
 
-  // describe("services", function() {
+  describe("services", function() {
 
-  //   it("server add a service", function(done) {
-  //     server.addService(tracker, "dummyService", (self, sender, msg) => {
-  //       messaging.answer(self, sender, sender, msg, "dummyService here");
-  //     });
+    it("server add a service", function(done) {
+      tracker.addService("dummyService", (self, sender, msg) => {
+        messaging.answer(self, sender, sender, msg, "dummyService here");
+      });
 
-  //     lang.fun.composeAsync(
-  //       n => {
-  //         messaging.sendAndReceive(
-  //           client1, client1.getConnection(),
-  //           {id: client1.trackerId},
-  //           {action: "dummyService", data: null}, n);
-  //       }
-  //     )((err, {data}) => {
-  //       if (err) return done(err);
-  //       expect(data).eq("dummyService here");
-  //       done();
-  //     });
-  //   });
+      lang.fun.composeAsync(
+        n => {
+          messaging.sendAndReceive(
+            client1, client1.getConnection(),
+            {id: client1.trackerId},
+            {action: "dummyService", data: null}, n);
+        }
+      )((err, {data}) => {
+        if (err) return done(err);
+        expect(data).eq("dummyService here");
+        done();
+      });
+    });
 
-  // });
+  });
 
   describe("reconnection", function() {
 
@@ -169,23 +169,23 @@ describe('client and server', function() {
       });
     });
 
-    // it("client re-establishes connection when server fails", function(done) {
-    //   lang.fun.composeAsync(
-    //     n => server.close(tracker, n),
-    //     n => setTimeout(n, 200),
-    //     n => tracker = server.start({debug: debug, id: tracker.id, port: port}, n),
-    //     (_, n) => setTimeout(n, 200),
-    //     n => messaging.sendAndReceive(
-    //         client1, client1.getConnection(),
-    //         {id: client1.trackerId},
-    //         {action: "echo", data: "foo"}, n)
-    //   )((err, {action, data}) => {
-    //     if (err) return done(err);
-    //     expect(action).eq("echoResult");
-    //     expect(data).eq("foo");
-    //     done();
-    //   });
-    // });
+    it("client re-establishes connection when server fails", function(done) {
+      lang.fun.composeAsync(
+        n => tracker.close(n),
+        n => setTimeout(n, 200),
+        n => tracker = server.start({debug: debug, id: tracker.id, port: port}, n),
+        (_, n) => setTimeout(n, 200),
+        n => messaging.sendAndReceive(
+            client1, client1.getConnection(),
+            {id: client1.trackerId},
+            {action: "echo", data: "foo"}, n)
+      )((err, {action, data}) => {
+        if (err) return done(err);
+        expect(action).eq("echoResult");
+        expect(data).eq("foo");
+        done();
+      });
+    });
 
   });
 

@@ -22,6 +22,7 @@ Messenger.prototype.inspect = function() {
   return lang.string.format("<messenger %s>", this.id);
 }
 
+Messenger.prototype.addService = function(name, handler) { return this._services[name] = handler; }
 Messenger.prototype.services = function() { return this._services; }
 Messenger.prototype.serviceNamed = function(name) { return this._services[name]; }
 Messenger.prototype.serviceForMessage = function(msg) { return this.serviceNamed(msg.action); }

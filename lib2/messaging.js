@@ -79,7 +79,7 @@ function scheduleSend(sender, connection, receiver, msg, thenDo) {
   var q = getSendQueue(sender),
       data = [sender, connection, receiver, msg, thenDo];
   q[msg.bypassQueue ? "unshift" : "push"](data);
-  sender.once("open", function() { deliverSendQueue(sender); });
+  connection.once("open", function() { deliverSendQueue(sender); });
 }
 
 function deliverSendQueue(sender) {
