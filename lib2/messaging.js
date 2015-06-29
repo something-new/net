@@ -204,7 +204,7 @@ module.exports = {
 
   send: function(sender, connection, receiver, msg, thenDo) {
     if (!connection) {
-      var err = new Error("send with " + sender + " but no connection specified");
+      var err = new Error("send with " + sender.inspect() + " but invalid connection:" + connection);
       if (thenDo) return thenDo(err);
       else throw err;
     }

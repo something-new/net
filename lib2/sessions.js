@@ -75,9 +75,9 @@ module.exports = {
       trackerSessions(participant, ignored, thenDo);      
     } else {
       messaging.sendAndReceive(
-        participant, {id: client.getTrackerId(participant)}, {
+        participant, {id: participant.trackerId()}, {
           action: "knownSessions",
-          data: {ignoredTrackers: ignored.concat([client.getTrackerId(participant)])}
+          data: {ignoredTrackers: ignored.concat([participant.trackerId()])}
         },
         function(err, answer) {
           err && console.error(err.stack || err);

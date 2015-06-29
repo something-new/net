@@ -17,16 +17,18 @@ function sendRegisterMessage(messenger, thenDo) {
     messenger, messenger.getConnection(), null,
     {
       bypassQueue: true,
-      action: opts.isFederationConnection ? "registerServer" : "registerClient",
-      id: messenger.id,
-      worldURL: require("os").hostname(),
-      user: messenger.name || opts.name || "no-name",
-      timeOfCreation: Date.now(),
-      timeOfRegistration: Date.now(),
-      lastActivity: Date.now()
+      action: "register",
+      data: {
+        id: messenger.id,
+        worldURL: require("os").hostname(),
+        user: messenger.name || opts.name || "no-name",
+        timeOfCreation: Date.now(),
+        timeOfRegistration: Date.now(),
+        lastActivity: Date.now()
+      }
     },
   function(err, answer) {
-    messenger.trackerId = lang.Path("data.tracker.id").get(answer);
+    messenger._trackerId = lang.Path("data.tracker.id").get(answer);
     thenDo && thenDo(err);
   });
 }
@@ -58,7 +60,7 @@ function normalizeOptions(opts) {
 
 function Client(options) {
   Messenger.call(this, options, lang.obj.clone(defaultServices));
-  this.trackerId = null;
+  this._trackerId = null;
 }
 
 util.inherits(Client, Messenger);
@@ -67,11 +69,13 @@ Client.prototype.getConnection = function() {
   return this.allConnections()[0];
 }
 
+Client.prototype.trackerId = function() { return this._trackerId; }
+
 Client.prototype.inspect = function() {
   var con = this.getConnection();
   return lang.string.format(
     "<messenger %s connected to %s, state: %s>",
-    this.id, this.trackerId || "NO TRACKER", con ? con.status() : "NO CONNECTION");
+    this.id, this.trackerId() || "NO TRACKER", con ? con.status() : "NO CONNECTION");
 }
 
 Client.prototype.connect = function(thenDo) {
@@ -85,7 +89,7 @@ Client.prototype.connect = function(thenDo) {
       messenger.addConnection('tracker', connection);
 
       connection.once("close", function() {
-        messenger.trackerId = null;
+        messenger._trackerId = null;
         logger.log("client close", messenger, "disconnected from %s", opts.url);
         messenger.removeConnection(connection);
       });
@@ -97,10 +101,10 @@ Client.prototype.connect = function(thenDo) {
     function(_, n) {
       if (!opts.register) thenDo(null);
       else sendRegisterMessage(messenger, function(err) {
-        if (messenger.trackerId) {
+        if (messenger.trackerId()) {
           // correctly categorize connection
           messenger.removeConnection(connection);
-          messenger.addConnection(messenger.trackerId, connection);
+          messenger.addConnection(messenger.trackerId(), connection);
         }
         thenDo && thenDo(err);
       });
@@ -113,9 +117,7 @@ module.exports = {
 
   start: function(options, thenDo) {
     var client = new Client(normalizeOptions(options));
-    client.connect(function(err) {
-      thenDo && thenDo(err, client);
-    });
+    client.connect(function(err) { thenDo && thenDo(err, client); });
     return client;
   }
 

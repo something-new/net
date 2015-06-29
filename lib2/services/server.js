@@ -12,35 +12,30 @@ function addProxy(proxy, msg) {
 
 module.exports = {
 
-  registerClient: function(self, sender, msg) {
+  register: function(self, sender, msg) {
     var id = msg.sender;
-    sender.id = id;
+
     self.addConnection(id, sender);
+    self.addSessionData(id, util.selectKeys(msg.data, [
+      'id', 'worldURL', 'user',
+      'timeOfCreation', 'timeOfRegistration',
+      'lastActivity'
+    ]));
+
     sender.on("close", function() {
       self.removeConnection(sender);
     });
+
     messaging.answer(self, sender, sender, msg, {
       success: true,
       tracker: {id: self.id}
     });
   },
 
-  unregisterClient: function(self, sender, msg) {
+  unregister: function(self, sender, msg) {
+    var id = msg.sender;
+    self.removeConnection(sender);
     messaging.answer(self, sender, sender, msg, {success: true});
-  },
-
-  registerServer: function(self, sender, msg) {
-    var id = sender.id;
-
-    server.getAcceptedServerSessions(self)[id] = sender;
-    sender.on("close", function() {
-      logger.log("accepted federation connection closed", self, "%s", id);
-      delete server.getAcceptedServerSessions(self)[id];
-    });
-    messaging.answer(self, sender, sender, msg, {
-      success: true,
-      tracker: {id: self.id}
-    });
   },
 
   knownSessions: function(self, sender, msg) {

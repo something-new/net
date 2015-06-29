@@ -64,7 +64,7 @@ describe('client and server', function() {
           client1.once("answer-"+msg.messageId, msg => n(null, msg));
         }
       )((err, {action, data, sender}) => {
-        if (err) return done(err);
+        if (err || data.error) return done(err || data.error);
         expect(sender).eq(client2.id);
         expect(action).eq("echoResult");
         expect(data).eq("foo");
@@ -164,7 +164,7 @@ describe('client and server', function() {
             {action: "echo", data: "foo"}, n);
         }
       )((err, msg) => {
-        expect(String(err)).match(/cannot send.*not connected/i);
+        expect(String(err)).match(/(cannot send.*not connected)|(invalid connection)/i);
         done();
       });
     });
