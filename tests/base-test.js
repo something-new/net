@@ -4,6 +4,8 @@ var chai = module.require('chai');
 chai.use(require('chai-subset'));
 var expect = chai.expect;
 
+var debug = true;
+
 var lang = require("lively.lang");
 var server = require("../lib/nodejs/server");
 var client = require("../lib/nodejs/client");
@@ -18,9 +20,8 @@ describe('client and server', function() {
   beforeEach(function(done) {
     console.log("[TESTING] >>> \"%s\"", this.currentTest.title);
     lang.fun.composeAsync(
-      n => tracker = server.start({debug: true, port: port}, n),
-      (_, n) => client1 = client.start({debug: true, port: port}, n),
-      (_, n) => n()
+      n => tracker = server.start({debug: debug, port: port}, n),
+      (_, n) => client1 = client.start({debug: debug, port: port}, n)
     )(done);
   });
   
@@ -54,7 +55,7 @@ describe('client and server', function() {
 
     it("msg: c1 => t1 => c2", function(done) {
       lang.fun.composeAsync(
-        n => client2 = client.start({debug: true, port: port}, n),
+        n => client2 = client.start({debug: debug, port: port}, n),
         (_, n) => {
           var msg = messaging.sendTo(
             client1, client.getConnection(client1), {id: client2.id},
@@ -96,7 +97,7 @@ describe('client and server', function() {
         var receivedBy1 = [],
             receivedBy2 = [];
         lang.fun.composeAsync(
-          n => client2 = client.start({debug: true, port: port}, n),
+          n => client2 = client.start({debug: debug, port: port}, n),
           (_, n) => {
             client1.on("message", m => receivedBy1.push(m));
             client2.on("message", m => receivedBy2.push(m));
@@ -152,7 +153,7 @@ describe('client and server', function() {
         n => client.close(client1, n),
         n => server.close(tracker, n),
         n => setTimeout(n, 200),
-        n => tracker = server.start({debug: true, port: port}, n),
+        n => tracker = server.start({debug: debug, port: port}, n),
         (_, n) => setTimeout(n, 200),
         n => {
           console.log("TEST NOTE: A WARNING MESSAGE IS EXPECTED");
@@ -171,7 +172,7 @@ describe('client and server', function() {
       lang.fun.composeAsync(
         n => server.close(tracker, n),
         n => setTimeout(n, 200),
-        n => tracker = server.start({debug: true, id: tracker.id, port: port}, n),
+        n => tracker = server.start({debug: debug, id: tracker.id, port: port}, n),
         (_, n) => setTimeout(n, 200),
         n => messaging.sendAndReceive(
             client1, client.getConnection(client1),

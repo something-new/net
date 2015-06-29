@@ -1,31 +1,23 @@
 var lang = require("lively.lang");
 var uuid = require("node-uuid");
-var logger = require("../logger");
-var util = require("../util");
+var logger = require("./logger");
+var util = require("./util");
 
-var counter = 1;
-
-var ConnectionStates = {
-  CLOSED: "CLOSED",
-  CONNECTING: "CONNECTING",
-  CONNECTED: "CONNECTED"
-}
-
-var CLOSED = ConnectionStates.CLOSED;
-var CONNECTING = ConnectionStates.CONNECTING;
-var CONNECTED = ConnectionStates.CONNECTED;
+var connection = require("./connection");
+var CLOSED = connection.CLOSED;
+var CONNECTING = connection.CONNECTING;
+var CONNECTED = connection.CONNECTED;
 
 var SendStates = {
   SENDING: "SENDING",
   IDLE: "IDLE"
 }
-
 var SENDING = SendStates.SENDING;
 var IDLE = SendStates.IDLE;
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-// maps: receiver (server | client) -> {timestamps: [message ids]}
+// maps: messenger -> {timestamps: [message ids]}
 var receivedMessages = new Map();
 // var receivedMessageCacheTime = 60*1000;
 var receivedMessageCacheTime = 1*1000;
@@ -36,27 +28,27 @@ function cleanReceivedMessageCache(receivedMessages) {
   });
 }
 
-function cleanReceivedMessageCacheForReceiver(receivedMessages, receiver) {
-  var cache = receivedMessageCacheForReceiver(receivedMessages, receiver),
+function cleanReceivedMessageCacheForReceiver(receivedMessages, messenger) {
+  var cache = receivedMessageCacheForReceiver(receivedMessages, messenger),
       cacheTime = Math.round(Date.now() / receivedMessageCacheTime),
       count = 0;
   for (var time in cache) {
     if (cacheTime - time > 0) delete cache[time];
     else count++;
   }
-  if (count === 0) receivedMessages.delete(receiver);
+  if (count === 0) receivedMessages.delete(messenger);
 }
 
-function receivedMessageCacheForReceiver(receivedMessages, receiver) {
-  var cache  = receivedMessages.get(receiver);
-  if (!cache) receivedMessages.set(receiver, cache = {});
+function receivedMessageCacheForReceiver(receivedMessages, messenger) {
+  var cache  = receivedMessages.get(messenger);
+  if (!cache) receivedMessages.set(messenger, cache = {});
   return cache;
 }
 
-function registerMessage(receiver, msg) {
+function registerMessage(messenger, msg) {
   // returns true if the message was already processed by receiver
-  cleanReceivedMessageCacheForReceiver(receivedMessages, receiver);
-  var cache = receivedMessageCacheForReceiver(receivedMessages, receiver),
+  cleanReceivedMessageCacheForReceiver(receivedMessages, messenger);
+  var cache = receivedMessageCacheForReceiver(receivedMessages, messenger),
       seen = lang.obj.values(cache).some(function(msgIds) {
         return msgIds.indexOf(msg.messageId) > -1; }),
       cacheTime = Math.round(Date.now() / receivedMessageCacheTime);
@@ -81,11 +73,11 @@ function removeSendQueue(sender) {
   if (q) sendQueues.delete(sender);
 }
 
-function scheduleSend(sender, receiver, msg, thenDo) {
+function scheduleSend(sender, connection, receiver, msg, thenDo) {
   logger.log("queueing send", sender, "%s on %s. position",
     msg.action, getSendQueue(sender).length);
   var q = getSendQueue(sender),
-      data = [sender, receiver, msg, thenDo];
+      data = [sender, connection, receiver, msg, thenDo];
   q[msg.bypassQueue ? "unshift" : "push"](data);
   sender.once("open", function() { deliverSendQueue(sender); });
 }
@@ -117,9 +109,9 @@ function ensureMessageProperties(sender, receiver, msg) {
   return msg;
 }
 
-function actualSend(sender, receiver, msg, thenDo) {
-  if (sender.getState().connectionState === CLOSED) {
-    var errString = "cannot send, " + sender.id + " not connected";
+function actualSend(sender, connection, receiver, msg, thenDo) {
+  if (connection.status() === CLOSED) {
+    var errString = "cannot send, " + connection + " of " + sender.id + " not connected";
     console.error(errString);
     if (thenDo) thenDo(new Error(errString));
     return;
@@ -145,13 +137,18 @@ function actualSend(sender, receiver, msg, thenDo) {
   setTimeout(actions[0], 2000);
 
   // sender.sendState = SENDING;
-  sender.sendString(receiver, msg, actions[1]);
+  connection.send(msg, actions[1]);
   return msg;
 }
 
 module.exports = {
 
-  ConnectionStates: ConnectionStates,
+  ConnectionStates: {
+    CLOSED: CLOSED,
+    CONNECTING: CONNECTING,
+    CONNECTED: CONNECTED,
+  },
+
   SendStates: SendStates,
 
   clearCacheFor: function(sender) {
@@ -206,18 +203,21 @@ module.exports = {
   },
 
   send: function(sender, connection, receiver, msg, thenDo) {
+    if (!connection) {
+      var err = new Error("send with " + sender + " but no connection specified");
+      if (thenDo) return thenDo(err);
+      else throw err;
+    }
     msg = ensureMessageProperties(sender, receiver, msg);
 
-    var status = status = (sender.status && sender.status())
-              || (sender.getState().connection && sender.getState().connection.status && sender.getState().connection.status())
-              || sender.getState().connectionState;
+    var status = connection.status();
 
     if (status === CONNECTING
-     || sender.getState().sendState === SENDING
+    // || sender.getState().sendState === SENDING
      || !!getSendQueue(sender).length) {
-      scheduleSend(sender, receiver, msg, thenDo);
+      scheduleSend(sender, connection, receiver, msg, thenDo);
     } else {
-      actualSend(sender, receiver, msg, thenDo);
+      actualSend(sender, connection, receiver, msg, thenDo);
     }
 
     return msg;
@@ -227,7 +227,7 @@ module.exports = {
     if (registerMessage(messenger, msg)) {
       logger.log("message already received", messenger,
         "%s %s\n  from %s / %s\n  proxies",
-        msg.action, msg.messageId, msg.sender, connection.id || "", msg.proxies);
+        msg.action, msg.messageId, msg.sender, connection, msg.proxies);
       return;
     }
 
@@ -244,8 +244,7 @@ module.exports = {
       return;
     }
 
-    var services = messenger.getState().services || {},
-        handler = services[action];
+    var handler = messenger.serviceForMessage(msg);
 
     if (relay) {
       if (handler) {
