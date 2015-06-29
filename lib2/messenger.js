@@ -22,9 +22,9 @@ Messenger.prototype.inspect = function() {
   return lang.string.format("<messenger %s>", this.id);
 }
 
-Messenger.prototype.services = function(connection, msg, thenDo) {
-  return this._services;
-}
+Messenger.prototype.services = function() { return this._services; }
+Messenger.prototype.serviceNamed = function(name) { return this._services[name]; }
+Messenger.prototype.serviceForMessage = function(msg) { return this.serviceNamed(msg.action); }
 
 Messenger.prototype.close = function(thenDo) {
   var messenger = this;
@@ -71,10 +71,11 @@ Messenger.prototype.addConnectionListener = function(l) {
   return this;
 }
 
-Messenger.prototype.services = function() { return this._services; }
-
-Messenger.prototype.serviceForMessage = function(msg) {
-  return this._services[msg.action];
+Messenger.prototype.findConnection = function(id, thenDo) {
+  var cons = this._connections[id];
+  var con = cons && cons[0];
+  thenDo(null, con);
+  return this;
 }
 
 module.exports = {

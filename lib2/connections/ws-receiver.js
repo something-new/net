@@ -19,7 +19,7 @@ ReceiverConnection.prototype.connect = function(thenDo) {
 }
 
 ReceiverConnection.prototype.close = function(thenDo) {
-  this.options().autoReconnect = false;
+  console.log("TODO IMPLEMENT ws listener close!!!");
   var ws = this._connection;
   ws && ws.close();
   thenDo(null);

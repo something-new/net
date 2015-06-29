@@ -55,23 +55,34 @@ module.exports = {
   },
 
   relay: function(receiver, sender, msg) {
-    var relayedMsg = addProxy(receiver, msg),
-        target = server.getClientSessions(receiver)[msg.target];
-
-    if (target) {
-      messaging.send(receiver, target, target, relayedMsg);
-    } else {
-      var trackers = lang.obj.merge(
-            server.getOwnedServerSessions(receiver),
-            server.getAcceptedServerSessions(receiver)),
-          proxyIds = lang.arr.pluck(relayedMsg.proxies, "id");
-      for (var id in trackers) {
-        if (proxyIds.indexOf(id) !== -1) continue;
-        var con = trackers[id];
-        if (con.state && con.state.connection) con = con.state.connection;
-        messaging.send(receiver, con, con, relayedMsg);
+    var relayedMsg = addProxy(receiver, msg);
+    
+    lang.fun.composeAsync(
+      function(n) {
+        receiver.findConnection(msg.target, function(err, con) {
+          if (err) console.log(err.stack || err);
+          n(null, con);
+        });
       }
-    }
+    )(function(err, target) {
+      if (target) {
+        console.log(target);
+        messaging.send(receiver, target, target, relayedMsg);
+      } else {
+        messaging.answer(relayedMsg, sender, sender, msg, {error: "could not find " + msg.target});
+        // var trackers = lang.obj.merge(
+        //       server.getOwnedServerSessions(receiver),
+        //       server.getAcceptedServerSessions(receiver)),
+        //     proxyIds = lang.arr.pluck(relayedMsg.proxies, "id");
+        // for (var id in trackers) {
+        //   if (proxyIds.indexOf(id) !== -1) continue;
+        //   var con = trackers[id];
+        //   if (con.state && con.state.connection) con = con.state.connection;
+        //   messaging.send(receiver, con, con, relayedMsg);
+        // }
+      }
+    });
+
   },
 
   broadcast: function(receiver, sender, msg) {

@@ -244,7 +244,7 @@ module.exports = {
       return;
     }
 
-    var handler = messenger.serviceForMessage(msg);
+    var handler = messenger.serviceNamed(action);
 
     if (relay) {
       if (handler) {
@@ -260,6 +260,7 @@ module.exports = {
     if (handler) {
       try {
         handler(messenger, connection, msg);
+        return;
       } catch (e) {
         console.error("Error in service handler %s:", msg.action, e.stack || e);
       }
@@ -267,6 +268,7 @@ module.exports = {
       module.exports.answer(
         messenger, connection, connection, msg,
         {error: "message not understood"});
+      return;
     }
 
     if (msg.broadcast && services.broadcast) {

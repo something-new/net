@@ -19,13 +19,10 @@ Tracker.prototype.addServer = function(server) {
   var tracker = this;
   this.addConnectionListener(server);
   server.on("error", function(err) { logger.log("error in websocket server", tracker, "%s", err.stack || err); });
-  server.on("close", function() { logger.log("websocket server closed", tracker); });
+  server.on("close", function() { logger.log("websocket server closed", tracker, ""); });
   server.on("connection", function(con) {
     logger.log("websocket server got connection", tracker, "");
-    con.on("message", function(msg) {
-      logger.log("websocket server receiver got message", tracker, "%s", msg.action);
-      messaging.receive(tracker, con, msg);      
-    });
+    con.on("message", function(msg) { messaging.receive(tracker, con, msg); });
   });
 };
 

@@ -1,5 +1,4 @@
 var lang = require("lively.lang");
-var logger = require("../logger");
 var wsReceiver = require("../connections/ws-receiver");
 var WebSocketServer = require('ws').Server;
 
@@ -9,13 +8,10 @@ function WsListener(options) {
   lang.events.makeEmitter(this);
   options = lang.obj.merge(options || {}, {clientTracking: false});
   this._options = options;
-  this._connections = [];
   this.__server = null;
 }
 
 WsListener.prototype.options = function() { return this._options; }
-
-WsListener.prototype.connections = function() { return this._connections; }
 
 WsListener.prototype.start = function(thenDo) {
   thenDo = thenDo && lang.fun.once(thenDo);
@@ -46,7 +42,6 @@ WsListener.prototype.start = function(thenDo) {
 
   server.on("connection", function(ws) {
     var receiverConnection = wsReceiver.create(ws).start();
-    listener._connections.push(receiverConnection);
     listener.emit("connection", receiverConnection);
   });
 
@@ -55,9 +50,11 @@ WsListener.prototype.start = function(thenDo) {
 
 
 WsListener.prototype.close = function(thenDo) {
-  console.log("TODO IMPLEMENT ws listener / server close!!!");
   if (this._server) this._server.close();
-  setTimeout(thenDo, 100);
+  setTimeout(function() {
+    this.emit("close");
+    thenDo && thenDo();
+  }.bind(this), 10);
 };
 
 module.exports = {
